@@ -14,3 +14,4 @@ Upcoming features include ;-
 
 + Optimization routines that let you construct both an optimal schedule and an optimal inventory management system. 
 
+![example image](./Figures/Figure_1.png)
