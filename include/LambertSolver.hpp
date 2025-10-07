@@ -294,7 +294,8 @@ std::vector<double> findxy(const double lambda, const double T, const int max_re
 
 
 
-// the lambert solver is going to return velocitiies
+// the lambert solver is going to return velocitiies v1, v2 which have to be applied at t1,t2 respectively 
+// inputs - r1 (t1) , r2 (t2), time of flight (t2-t1), mu, direction (1 for prograde, -1 for retrograde), max_revolutions (default 0)
 std::vector<arma::vec> lambert_solver(const arma::vec3 r1, const arma::vec3 r2,const double time_of_flight, const double mu ,const int direction, const int max_revolutions){
 
     if (time_of_flight < 0){
@@ -337,8 +338,14 @@ std::vector<arma::vec> lambert_solver(const arma::vec3 r1, const arma::vec3 r2,c
     arma::vec dirvec_t1;
     arma::vec dirvec_t2;
 
-    // direction based change in lambda
-    if (r1(0)*r2(1) - r1(1)*r2(0) < 0){
+    
+    // determination of the direction of the transfer orbit
+
+    if (direction == 1 || direction == -1){
+
+    // user specified direction of motion (prograde/retrograde)
+
+    if (direction == -1){
         lambda = -lambda;
 
         arma::vec dirvec_t1 = arma::cross(dirvec_r1,h_vec_dir); 
@@ -353,17 +360,45 @@ std::vector<arma::vec> lambert_solver(const arma::vec3 r1, const arma::vec3 r2,c
 
     }
 
-    double T = sqrt( 2*mu / pow(s,3) ) * tof;
 
+    }
 
-    if (direction == -1){
+    else{
+        
+    
+    // Automatic determination of direction of motion (prograde/retrograde)
+    
+    /*
+    Algorithm 1 in D. Izzo "Revisiting Lambert's Problem" suggests this conditional to 
+    determine the direction of rotation.This is in essence the second element of the 
+    angular momentum vector (h_vec_dir). if this is negative, the motion is retrograde and
+    if positive, the motion is prograde.
 
+    So we replace the conditional r11*r22 - r12*r21 < 0 with h_vec_dir(2) < 0.  
+
+    */
+
+    if (h_vec_dir(2) < 0){
         lambda = -lambda;
-        dirvec_t1 = -dirvec_t1;
-        dirvec_t2 = -dirvec_t2;
+
+        arma::vec dirvec_t1 = arma::cross(dirvec_r1,h_vec_dir); 
+        arma::vec dirvec_t2 = arma::cross(dirvec_r2,dirvec_r2); 
+
+    }
+
+    else
+    {
+        arma::vec dirvec_t1 = arma::cross(h_vec_dir, dirvec_r1); 
+        arma::vec dirvec_t2 = arma::cross(h_vec_dir,h_vec_dir); 
+
     }
 
 
+    }
+
+
+
+    double T = sqrt( 2*mu / pow(s,3) ) * tof;
 
     ///// outputs of findxy //////
     std::vector<double> xlist = findxy(lambda, T, max_revolutions);
