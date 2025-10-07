@@ -1520,4 +1520,5 @@ CMakeFiles/Nbody.dir/src/Nbody.cpp.o: \
   /opt/homebrew/Cellar/armadillo/15.0.3/include/armadillo_bits/newarp_UpperHessenbergEigen_meat.hpp \
   /opt/homebrew/Cellar/armadillo/15.0.3/include/armadillo_bits/newarp_UpperHessenbergQR_meat.hpp \
   /opt/homebrew/Cellar/armadillo/15.0.3/include/armadillo_bits/compiler_setup_post.hpp \
-  /Users/sushantnigudkar/Downloads/NbodyWalkerDelta/include/Nbody.hpp
+  /Users/sushantnigudkar/Downloads/NbodyWalkerDelta/include/Nbody.hpp \
+  /Users/sushantnigudkar/Downloads/NbodyWalkerDelta/include/LambertSolver.hpp

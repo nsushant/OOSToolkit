@@ -172,6 +172,9 @@ std::vector<double> findxy(const double lambda, const double T, const int max_re
 
     ///// find xy algorithm 2 in D. Izzo "Revisiting Lambert's Problem" /////
 
+
+    /*
+   
     if (abs(lambda) > 1 ){
 
         std::cerr << "Error: lambda must be less than 1" << std::endl;
@@ -183,7 +186,7 @@ std::vector<double> findxy(const double lambda, const double T, const int max_re
         std::cerr << "Error: T must be negative" << std::endl;
         return std::vector<double>();
     }
-
+    */
 
     int M_max = static_cast<int>(floor(T/M_PI)); 
     double T_1 = 2/3 * (1 - pow(lambda,3)); 
@@ -286,17 +289,9 @@ std::vector<double> findxy(const double lambda, const double T, const int max_re
 
 }
 
-
-
-
-
-
-
-
-
 // the lambert solver is going to return velocitiies v1, v2 which have to be applied at t1,t2 respectively 
 // inputs - r1 (t1) , r2 (t2), time of flight (t2-t1), mu, direction (1 for prograde, -1 for retrograde), max_revolutions (default 0)
-std::vector<arma::vec> lambert_solver(const arma::vec3 r1, const arma::vec3 r2,const double time_of_flight, const double mu ,const int direction, const int max_revolutions){
+std::vector<arma::vec> lambert_solver(const arma::vec3 r1, const arma::vec3 r2,const double time_of_flight, const double mu ,const int retrograde, const int max_revolutions){
 
     if (time_of_flight < 0){
 
@@ -332,80 +327,51 @@ std::vector<arma::vec> lambert_solver(const arma::vec3 r1, const arma::vec3 r2,c
     arma::vec3 dirvec_r2 = posvec2 / r2_norm; // unit vector in the direction of r2
     arma::vec h_vec_dir = arma::cross(dirvec_r1, dirvec_r2); // direction of the angular momentum vector
 
+    std::cout << "n_elems in h_vec_dir :" << h_vec_dir.n_elem << std::endl;
+
+
     double lambda = sqrt(1 - c_norm / s);
 
 
     arma::vec dirvec_t1;
     arma::vec dirvec_t2;
 
-    
-    // determination of the direction of the transfer orbit
-
-    if (direction == 1 || direction == -1){
-
-    // user specified direction of motion (prograde/retrograde)
-
-    if (direction == -1){
-        lambda = -lambda;
-
-        arma::vec dirvec_t1 = arma::cross(dirvec_r1,h_vec_dir); 
-        arma::vec dirvec_t2 = arma::cross(dirvec_r2,dirvec_r2); 
-
-    }
-
-    else
-    {
-        arma::vec dirvec_t1 = arma::cross(h_vec_dir, dirvec_r1); 
-        arma::vec dirvec_t2 = arma::cross(h_vec_dir,h_vec_dir); 
-
-    }
-
-
-    }
-
-    else{
-        
-    
-    // Automatic determination of direction of motion (prograde/retrograde)
-    
-    /*
-    Algorithm 1 in D. Izzo "Revisiting Lambert's Problem" suggests this conditional to 
-    determine the direction of rotation.This is in essence the second element of the 
-    angular momentum vector (h_vec_dir). if this is negative, the motion is retrograde and
-    if positive, the motion is prograde.
-
-    So we replace the conditional r11*r22 - r12*r21 < 0 with h_vec_dir(2) < 0.  
-
-    */
-
     if (h_vec_dir(2) < 0){
         lambda = -lambda;
 
-        arma::vec dirvec_t1 = arma::cross(dirvec_r1,h_vec_dir); 
-        arma::vec dirvec_t2 = arma::cross(dirvec_r2,dirvec_r2); 
+        dirvec_t1 = arma::cross(dirvec_r1,h_vec_dir); 
+        dirvec_t2 = arma::cross(dirvec_r2,h_vec_dir); 
 
     }
 
     else
     {
-        arma::vec dirvec_t1 = arma::cross(h_vec_dir, dirvec_r1); 
-        arma::vec dirvec_t2 = arma::cross(h_vec_dir,h_vec_dir); 
+        dirvec_t1 = arma::cross(h_vec_dir, dirvec_r1); 
+        dirvec_t2 = arma::cross(h_vec_dir,dirvec_r2); 
 
     }
 
 
-    }
+    
+    if (retrograde == 1){
 
+        lambda = -lambda;
+        dirvec_t1 = -dirvec_t1;
+        dirvec_t2 = -dirvec_t2;
+
+    }
 
 
     double T = sqrt( 2*mu / pow(s,3) ) * tof;
 
     ///// outputs of findxy //////
+
+    std::cout << "Finding Tmin using findxy..." << std::endl;
+
     std::vector<double> xlist = findxy(lambda, T, max_revolutions);
     
-    // assume equal length xlist and ylist
-    arma::vec xlist; 
-    arma::vec ylist; 
+    std::cout << "xlist constructed with elements : "<< xlist.size() << std::endl;
+
 
 
     double gamma = sqrt(mu * s / 2); 
@@ -414,6 +380,9 @@ std::vector<arma::vec> lambert_solver(const arma::vec3 r1, const arma::vec3 r2,c
     double v_r1, v_t1, v_r2, v_t2, y, x_loop, y_loop;
     
     std::vector<arma::vec> velocity_solutions;
+
+    std::cout << "shape of dirvecs r1, r2 :" << dirvec_r1.n_elem << " , " << dirvec_r2.n_elem << std::endl;
+    std::cout << "shape of dirvecs t1, t2 :" << dirvec_t1.n_elem << " , " << dirvec_t2.n_elem << std::endl;
 
     // looping over all xy pairs returned from findxy
     for (int elem = 0; elem < xlist.size(); ++elem){
