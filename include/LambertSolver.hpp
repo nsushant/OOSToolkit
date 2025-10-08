@@ -449,10 +449,21 @@ std::vector<arma::vec> lambert_solver(const arma::vec3 r1, const arma::vec3 r2,c
 
     }
 
-    // to extract components you do - velocity_solutions[i].subvec(0, 2) for v1 and 
-    // velocity_solutions[i].subvec(velocity_solutions[i].n_rows - 3, velocity_solutions[i].n_rows - 1)
-    // for last three or v2
     return velocity_solutions;
 
 
 }
+
+
+arma::vec3 get_v1(std::vector<arma::vec> solutions, int const solution_number){
+
+    return solutions[solution_number].subvec(0,2);
+
+}
+
+arma::vec3 get_v2(std::vector<arma::vec> solutions, int const solution_number){
+
+    return solutions[solution_number].subvec(3,5);
+
+}
+

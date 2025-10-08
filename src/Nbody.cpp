@@ -105,11 +105,10 @@ int main(){
     for (int sols=0 ; sols < lambert_solutions.size(); sols++){
     
     std::cout << "Solution number: " << sols+1 << std::endl;
-    std::cout << std::setprecision(10) << "V1 (at service station) (m/s): " << lambert_solutions[sols].subvec(0,2) << std::endl;
-    std::cout << std::setprecision(10) << "V2 (at client) (m/s): " << lambert_solutions[sols].subvec(3,5) << std::endl;
+    std::cout << std::setprecision(10) << "V1 (at service station) (m/s): " << get_v1(lambert_solutions,sols) << std::endl;
+    std::cout << std::setprecision(10) << "V2 (at client) (m/s): " << get_v2(lambert_solutions,sols) << std::endl;
 
     }
-
 
 
     return 0;
