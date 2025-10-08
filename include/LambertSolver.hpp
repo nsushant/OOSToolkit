@@ -22,26 +22,26 @@ double time_of_flight;
 double mu;
 
 
-void taking_derivatives( double &first_derivative,  double &second_derivative, double &third_derivative, double const lambda, const double x, const double T){
+void taking_derivatives( double &DT,  double &DDT, double &DDDT, double const lambda, const double x, const double T){
 
 
-    double lambda_squared = pow(lambda,2);
-    double lambda_cubed = pow(lambda,3);
+    // safe guards to avoid sqrt of negative or division by zero
+    //const double tiny = 1e-14;
+    double l2 = lambda * lambda;
+    double l3 = l2 * lambda;
 
-    // see above equation (16) in D. Izzo "Revisiting Lambert's Problem"
+    // denominator 1 - x^2 must not be zero
+    double umx2 = 1.0 - x * x;
+    double y = sqrt(1.0 - l2 * umx2);
 
-    double y = sqrt(1 - lambda_squared*(1 - x*x));
-
-    // see set of 3 equations (22) in D. Izzo "Revisiting Lambert's Problem"
-
-
-    first_derivative = 1/(1-pow(x,2)) * (3*T*x - 2 + 2 * lambda_cubed * x/y );
-
-    second_derivative = 3*T + 5 * x * first_derivative + 2 * (1 - lambda_squared)*(lambda_cubed/pow(y,3));
-
-    third_derivative = 7*x*second_derivative + 8 * first_derivative - 6*(1-lambda_squared)*pow(lambda,5)* x/pow(y,5);
-
+    double y2 = y * y;
+    double y3 = y2 * y;
     
+    DT = 1.0 / umx2 * (3.0 * T * x - 2.0 + 2.0 * l3 * x / y);
+    DDT = 1.0 / umx2 * (3.0 * T + 5.0 * x * DT + 2.0 * (1.0 - l2) * l3 / y3);
+    DDDT = 1.0 / umx2 * (7.0 * x * DDT + 8.0 * DT - 6.0 * (1.0 - l2) * l2 * l3 * x / y3 / y2);
+
+
 }
 
 
@@ -53,17 +53,17 @@ void tof_lagrange(double &tof, const double x, const int N, const double lambda)
     // here 'x' is the universal veriable 
     double a = 1.0 / (1.0 - x * x);
 
-    if (a > 0) // ellipse
+    if (a > 0) 
     {
         double alfa = 2.0 * acos(x);
-        double beta = 2.0 * asin(sqrt(pow(lambda,2) / a));
+        double beta = 2.0 * asin(sqrt(lambda*lambda / a));
         if (lambda < 0.0) beta = -beta;
 
         tof = ((a * sqrt(a) * ((alfa - sin(alfa)) - (beta - sin(beta)) + 2.0 * M_PI * N)) / 2.0);
 
     } else {
         double alfa = 2.0 * acosh(x);
-        double beta = 2.0 * asinh(sqrt(-(pow(lambda,2)) / a));
+        double beta = 2.0 * asinh(sqrt(-(lambda*lambda) / a));
 
         if (lambda < 0.0) beta = -beta;
 
@@ -112,7 +112,7 @@ void calc_time_of_flight(double &time_of_flight,const double x, const int N , co
         tof_lagrange(time_of_flight, x, N,lambda);
         return;
     }
-    double K = lambda * lambda;
+    double K = lambda*lambda;
     double E = x * x - 1.0;
     double rho = fabs(E);
     double z = sqrt(1 + K * E);
@@ -147,9 +147,10 @@ int iterate_householder(const double T, double &x0, const int N, const double ep
     double err = 1.0;
     double xnew = 0.0;
     double tof = 0.0, delta = 0.0, DT = 0.0, DDT = 0.0, DDDT = 0.0;
+    double x_orig = x0;
     while ((err > eps) && (it < iter_max)) {
-        tof_lagrange(tof, x0, N,lambda);
-        taking_derivatives(DT, DDT, DDDT, lambda,x0, tof);
+        calc_time_of_flight(tof, x0, N, lambda);
+        taking_derivatives(DT, DDT, DDDT, lambda, x0, tof);
         delta = tof - T;
         double DT2 = DT * DT;
         xnew = x0 - delta * (DT2 - delta * DDT / 2.0) / (DT * (DT2 - delta * DDT) + DDDT * delta * delta / 6.0);
@@ -162,40 +163,127 @@ int iterate_householder(const double T, double &x0, const int N, const double ep
 
 
 
+// the lambert solver is going to return velocitiies v1, v2 which have to be applied at t1,t2 respectively 
+// inputs - r1 (t1) , r2 (t2), time of flight (t2-t1), mu, direction (1 for prograde, -1 for retrograde), max_revolutions (default 0)
+std::vector<arma::vec> lambert_solver(const arma::vec3 r1, const arma::vec3 r2,const double time_of_flight, const double mu ,const int retrograde, const int max_revolutions){
 
-std::vector<double> findxy(const double lambda, const double T, const int max_revolutions){
+    if (time_of_flight <=0){
 
-    std::vector<arma::vec> xy_pairs;
-
-    arma::vec x_list;
-    arma::vec y_list;
-
-    ///// find xy algorithm 2 in D. Izzo "Revisiting Lambert's Problem" /////
-
-
-    /*
-   
-    if (abs(lambda) > 1 ){
-
-        std::cerr << "Error: lambda must be less than 1" << std::endl;
-        return std::vector<double>();
+        std::cerr << "Error: time of flight must be non-negative and non-zero" << std::endl;
+        return std::vector<arma::vec>();
     }
 
-    if (T > 0.0) {
+    if (mu <= 0){
 
-        std::cerr << "Error: T must be negative" << std::endl;
-        return std::vector<double>();
+        std::cerr << "Error: mu must be non-negative and non-zero" << std::endl;
+        return std::vector<arma::vec>();
     }
-    */
 
-    int M_max = static_cast<int>(floor(T/M_PI)); 
-    double T_1 = 2/3 * (1 - pow(lambda,3)); 
-    double T_00 = acos(lambda) + lambda * sqrt(1 - pow(lambda,2));
-    double T_0 = acos(lambda) + lambda * sqrt(1 - pow(lambda,2)) + M_max * M_PI; 
-    double T_min = T_0;
+    
+    arma::vec3 vec_r1 = r1;
+    arma::vec3 vec_r2 = r2;
+    double tof = time_of_flight;
+    int max_revs = max_revolutions;
+    double direction = retrograde;
 
-    double x_now = 0.0; 
-    double x_next = 0.0; 
+    // algorithm 1 D. Izzo "Revisiting Lambert's Problem" 
+    arma::vec3 vec_c = vec_r2 - vec_r1;
+
+    // vec norms
+    double c = arma::norm(vec_c);
+    double r1_norm = arma::norm(vec_r1);
+    double r2_norm = arma::norm(vec_r2);
+
+
+    //calc s 
+    double s = (r1_norm + r2_norm + c) / 2.0 ;
+    
+
+    arma::vec3 dirvec_r1= vec_r1 / r1_norm; // unit vector in the direction of r1
+    arma::vec3 dirvec_r2 = vec_r2 / r2_norm; // unit vector in the direction of r2
+    
+    arma::vec h_vec_dir = arma::cross(dirvec_r1, dirvec_r2); // direction of the angular momentum vector
+    h_vec_dir = h_vec_dir / arma::norm(h_vec_dir); // unit vector in the direction of h
+
+
+    double lambda = sqrt(1.0 - c / s);
+
+    if (h_vec_dir(2) == 0){
+
+        std::cerr << "The angular momentum has no z component, cannot determine direction of orbit (cw or anti-cw)" << std::endl;
+
+    }
+
+
+    arma::vec dirvec_t1;
+    arma::vec dirvec_t2;
+
+    if (h_vec_dir(2) < 0){
+
+        // motion is clockwise
+        // long way solution 
+        // transfer angle is greater than pi 
+
+        lambda = -lambda;
+
+        arma::vec t1_cross = arma::cross(dirvec_r1,h_vec_dir);
+        dirvec_t1 = t1_cross / arma::norm(t1_cross); // unit vector in the direction of t1
+       
+        arma::vec t2_cross = arma::cross(dirvec_r2,h_vec_dir); 
+        dirvec_t2 = t2_cross / arma::norm(t2_cross); // unit vector in the direction of t1
+
+    }
+
+    else
+    {
+        arma::vec t1_cross= arma::cross(h_vec_dir, dirvec_r1); 
+        dirvec_t1 = t1_cross / arma::norm(t1_cross); // unit vector in the direction of t1
+
+        arma::vec t2_cross = arma::cross(h_vec_dir,dirvec_r2); 
+        dirvec_t2 = t2_cross / arma::norm(t2_cross); // unit vector in the direction of t1
+
+    }
+
+    
+    if (direction == 1){
+
+        // if cw direction is imposed
+
+        lambda = -1.0 * lambda;
+        dirvec_t1 = -1.0 * dirvec_t1;
+        dirvec_t2 = -1.0 * dirvec_t2;
+
+    }
+
+    double lambda_squared = lambda*lambda;
+    double lambda_cubed = lambda_squared * lambda;
+
+
+    // calculating non dimensional time of flight T
+    double T = sqrt( 2.0*mu / (s*s*s) ) * tof;
+
+    std::cout << "Non-dimensional time of flight T : " << T << std::endl;
+    std::cout << "lambda : " << lambda << std::endl;
+    std::cout << "chord : " << c << std::endl;
+    std::cout << "s : " << s << std::endl;
+
+    std::cout << "finding all 'x' for given lambda, T " << std::endl;
+
+    // maximum number of possible revs given travel time
+    int M_max = static_cast<int>(T/M_PI); 
+
+    // T for 0 revs and moderate elliptical orbits
+    double T_00 = acos(lambda) + lambda * sqrt(1 - lambda_squared);
+
+    // multiple revs but moderate elliptical orbits
+    double T_0 = (T_00 + M_max * M_PI); 
+    // T at parabolic limit 
+    double T_1 = 2.0/3.0 * (1.0 - lambda_cubed); 
+
+    std::cout << "lambda cube : " << lambda_cubed << std::endl;
+    std::cout << "T_1 : " << T_1 << std::endl;
+    std::cout << "T_00 : " << T_00 << std::endl;
+    std::cout << "T_0 : " << T_0 << std::endl;
 
     // see equation 21 in D. Izzo "Revisiting Lambert's Problem"
     // initialize derivatives
@@ -203,76 +291,96 @@ std::vector<double> findxy(const double lambda, const double T, const int max_re
     double second_derivative = 0.0; 
     double third_derivative = 0.0;
 
-    double error = 1.0;
-    int iterations = 0;
-
-    if ((T < T_0) && (M_max > 0)){
-
-
-        ///// START HALLEY ITERATIONS HERE TO FIND T_MIN /////
-
-        // ITERATION PROCEDURE from R. H. Gooding, "A Procedure for the Solution of Lambert's Orbital Boundary-Value Problem" (1970)
-
-        while (error > 1e-13 || iterations < 12)
-        {
-
-            taking_derivatives(first_derivative, second_derivative, third_derivative, lambda, x_now, T);
+    // if time of flight allows for multiple revolutions
+    if (M_max > 0) {
         
-            if (first_derivative != 0.0) {
+        // if T < the orbital period for M_max moderate elliptical orbits  
+        if (T < T_0){
+        
+            double T_min = T_0; 
+            double x_now = 0.0; 
+            double x_next = 0.0; 
+            double error = 1.0;
+            int iterations = 0;
 
-                x_next = x_now - first_derivative * second_derivative/(pow(second_derivative,2) - first_derivative * third_derivative / 2.0);
+
+            ///// START HALLEY ITERATIONS /////
+
+            // ITERATION PROCEDURE from R. H. Gooding, "A Procedure for the Solution of Lambert's Orbital Boundary-Value Problem" (1970)
+
+             while (1){
+        
+                taking_derivatives(first_derivative, second_derivative, third_derivative, lambda, x_now, T_min);
+        
+                if (first_derivative != 0.0) {
+
+                    x_next = x_now - first_derivative * second_derivative/((second_derivative*second_derivative) - first_derivative * third_derivative / 2.0);
+
+                }
+
+                error = fabs(x_now - x_next);
+
+                if (error < 1e-13 || iterations > 12){
+                    break;
+                }
+
+                calc_time_of_flight(T_min, x_next, M_max, lambda);
+                x_now = x_next;
+                iterations++;
 
             }
 
-            error = fabs(x_now - x_next);
+            // if the minimum time of flight is > requested, then subtract a rev
+            if (T_min > T){
 
-
-            calc_time_of_flight(T_min, x_next, M_max, lambda);
-            x_now = x_next;
-            iterations++;
+                M_max = M_max - 1;
+            }
 
         }
-
-        if (T_min > T){
-
-            M_max = M_max - 1;
-        }
-
-
+    
     }
 
-    T_1 = 2/3 * (1 - pow(lambda,3));
-
-    M_max = std::min(max_revolutions, M_max);
+    // minimum of possible and requested revolutions
+    M_max = std::min(max_revs, M_max);
 
     /// Hereafter directly adopted from pykep ///
-    // 2.2 We now allocate the memory for the output variables
+    // create output variables
     std::vector<double> m_v1;
     std::vector<double> m_v2;
     std::vector<int> m_iters;
     std::vector<double> m_x;
 
+    // allocate memory  )
     m_v1.resize(static_cast<size_t>(M_max) * 2 + 1);
     m_v2.resize(static_cast<size_t>(M_max) * 2 + 1);
     m_iters.resize(static_cast<size_t>(M_max) * 2 + 1);
     m_x.resize(static_cast<size_t>(M_max) * 2 + 1);
 
     // 3 - We may now find all solutions in x,y
-    // 3.1 0 rev solution
-    // 3.1.1 initial guess
+   
+    // if the requested tof is longer than a less than single rev moderate elliptical orbit
     if (T >= T_00) {
-        m_x[0] = -(T - T_00) / (T - T_00 + 4);
-    } else if (T <= T_1) {
-        m_x[0] = T_1 * (T_1 - T) / (2.0 / 5.0 * (1 - pow(lambda,3)) * T) + 1;
-    } else {
+        m_x[0] = -(T - T_00) / (T - T_00 + 4.0);
+    } 
+    // if not, then if requested tof is less than or equal to tof at parabolic limit 
+    else if (T <= T_1) {
+        m_x[0] = T_1 * (T_1 - T) / (2.0 / 5.0 * (1 - lambda_cubed * lambda_squared) * T) + 1.0;
+    } 
+    
+    // if the tof requested is longer than that at the parabolic limit but less than that of a single rev moderate elliptical orbit
+    else {
         m_x[0] = pow((T / T_00), 0.69314718055994529 / log(T_1 / T_00)) - 1.0;
     }
+
+    std::cout << "before householder: " << m_x[0] << " tof :" << T_00 <<" , " << T_1 << std::endl;
+
 
     // 3.1.2 Householder iterations
     m_iters[0] = iterate_householder(T, m_x[0], 0, 1e-5, 15,lambda);
     
     // 3.2 multi rev solutions
     double tmp;
+
 
     for (decltype(M_max) i = 1; i < M_max + 1; ++i) {
         // 3.2.1 left Householder iterations
@@ -284,99 +392,16 @@ std::vector<double> findxy(const double lambda, const double T, const int max_re
         m_x[2 * i] = (tmp - 1) / (tmp + 1);
         m_iters[2 * i] = iterate_householder(T, m_x[2 * i], i, 1e-8, 15, lambda);
     }
-    // to be implemented 
-    return m_x;
-
-}
-
-// the lambert solver is going to return velocitiies v1, v2 which have to be applied at t1,t2 respectively 
-// inputs - r1 (t1) , r2 (t2), time of flight (t2-t1), mu, direction (1 for prograde, -1 for retrograde), max_revolutions (default 0)
-std::vector<arma::vec> lambert_solver(const arma::vec3 r1, const arma::vec3 r2,const double time_of_flight, const double mu ,const int retrograde, const int max_revolutions){
-
-    if (time_of_flight < 0){
-
-        std::cerr << "Error: time of flight must be non-negative" << std::endl;
-        return std::vector<arma::vec>();
-    }
-
-    if (mu < 0){
-
-        std::cerr << "Error: mu must be non-negative" << std::endl;
-        return std::vector<arma::vec>();
-    }
-
-    
-    arma::vec3 posvec1 = r1;
-    arma::vec3 posvec2 = r2;
-    double tof = time_of_flight;
-
-    // algorithm 1 D. Izzo "Revisiting Lambert's Problem" 
-    arma::vec3 c = posvec2 - posvec1;
-
-    // vec norms
-    double c_norm = arma::norm(c);
-    double r1_norm = arma::norm(posvec1);
-    double r2_norm = arma::norm(posvec2);
-
-
-    //calc s 
-    double s = 0.5 * (r1_norm + r2_norm + c_norm);
-    
-
-    arma::vec3 dirvec_r1= posvec1 / r1_norm; // unit vector in the direction of r1
-    arma::vec3 dirvec_r2 = posvec2 / r2_norm; // unit vector in the direction of r2
-    arma::vec h_vec_dir = arma::cross(dirvec_r1, dirvec_r2); // direction of the angular momentum vector
-
-    std::cout << "n_elems in h_vec_dir :" << h_vec_dir.n_elem << std::endl;
-
-
-    double lambda = sqrt(1 - c_norm / s);
-
-
-    arma::vec dirvec_t1;
-    arma::vec dirvec_t2;
-
-    if (h_vec_dir(2) < 0){
-        lambda = -lambda;
-
-        dirvec_t1 = arma::cross(dirvec_r1,h_vec_dir); 
-        dirvec_t2 = arma::cross(dirvec_r2,h_vec_dir); 
-
-    }
-
-    else
-    {
-        dirvec_t1 = arma::cross(h_vec_dir, dirvec_r1); 
-        dirvec_t2 = arma::cross(h_vec_dir,dirvec_r2); 
-
-    }
-
-
-    
-    if (retrograde == 1){
-
-        lambda = -lambda;
-        dirvec_t1 = -dirvec_t1;
-        dirvec_t2 = -dirvec_t2;
-
-    }
-
-
-    double T = sqrt( 2*mu / pow(s,3) ) * tof;
-
-    ///// outputs of findxy //////
-
-    std::cout << "Finding Tmin using findxy..." << std::endl;
-
-    std::vector<double> xlist = findxy(lambda, T, max_revolutions);
-    
-    std::cout << "xlist constructed with elements : "<< xlist.size() << std::endl;
 
 
 
-    double gamma = sqrt(mu * s / 2); 
-    double rho = (r1_norm - r2_norm)/ c_norm ; 
-    double sigma = sqrt(1 - pow(rho,2)); 
+    std::cout << "xlist constructed with elements : " << m_x[0] << std::endl;
+
+
+
+    double gamma = sqrt(mu * s / 2.0); 
+    double rho = (r1_norm - r2_norm)/ c ; 
+    double sigma = sqrt(1 - (rho*rho)); 
     double v_r1, v_t1, v_r2, v_t2, y, x_loop, y_loop;
     
     std::vector<arma::vec> velocity_solutions;
@@ -385,17 +410,37 @@ std::vector<arma::vec> lambert_solver(const arma::vec3 r1, const arma::vec3 r2,c
     std::cout << "shape of dirvecs t1, t2 :" << dirvec_t1.n_elem << " , " << dirvec_t2.n_elem << std::endl;
 
     // looping over all xy pairs returned from findxy
-    for (int elem = 0; elem < xlist.size(); ++elem){
+    for (int elem = 0; elem < m_x.size(); ++elem){
 
-        x_loop = xlist[elem];
-        y_loop = sqrt(1.0 - pow(lambda,2) + pow(lambda,2) * pow(xlist[elem],2));
+        x_loop = m_x[elem];
+        double y_arg = 1.0 - (lambda_squared) + (lambda_squared) * (x_loop*x_loop);
 
+        if (!(y_arg >= 0.0)) {
+            std::cerr << "lambert_solver: y_arg is negative (" << y_arg << ") for x=" << x_loop << ", lambda=" << lambda << ", skipping solution\n";
+            // push NaNs to keep return size consistent (caller should check for NaNs)
+            arma::vec nanvec = arma::vec(6);
+            nanvec.fill(arma::datum::nan);
+            velocity_solutions.push_back(nanvec);
+            continue;
+        }
+
+        y_loop = sqrt(y_arg);
+
+        // diagnostics for NaN sources
+        if (r1_norm == 0.0 || r2_norm == 0.0) {
+            std::cerr << "lambert_solver: zero radius encountered r1_norm=" << r1_norm << " r2_norm=" << r2_norm << "\n";
+        }
+        double rho_check = (c == 0.0) ? arma::datum::nan : (r1_norm - r2_norm) / c;
+        double sigma_check = (rho_check != rho_check) ? arma::datum::nan : sqrt(1 - (rho_check*rho_check));
+        if (!std::isfinite(rho_check) || !std::isfinite(sigma_check)) {
+            std::cerr << "lambert_solver: invalid rho/sigma rho_check=" << rho_check << " sigma_check=" << sigma_check << "\n";
+        }
 
         v_r1 = gamma*( (lambda*y_loop - x_loop) -  rho*( lambda*y_loop + x_loop) )  / r1_norm;
         v_r2 = -gamma*( (lambda*y_loop - x_loop) +  rho*( lambda*y_loop + x_loop) )  / r2_norm;
 
         v_t1 = gamma*sigma*( y_loop + lambda*x_loop ) / r1_norm;
-        v_t2 = -gamma*sigma*(y_loop + lambda*x_loop) / r2_norm;
+        v_t2 = gamma*sigma*(y_loop + lambda*x_loop) / r2_norm;
 
         arma::vec v1 = v_r1*dirvec_r1 + v_t1*dirvec_t1;
         arma::vec v2 = v_r2*dirvec_r2 + v_t2*dirvec_t2;

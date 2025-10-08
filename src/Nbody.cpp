@@ -98,18 +98,17 @@ int main(){
     // client satellite at t=120
     arma::vec r2 = {7.02093e+06,540482,717244};
 
-    std::vector<arma::vec> lambert_solutions = lambert_solver(r1, r2, tof, MU_EARTH ,-1, 1);
+    std::vector<arma::vec> lambert_solutions = lambert_solver(r1, r2, tof, 3.986004418e14 , 0, 1);
 
     std::cout << "Number of solutions found: " << lambert_solutions.size() << std::endl ;
 
     for (int sols=0 ; sols < lambert_solutions.size(); sols++){
     
     std::cout << "Solution number: " << sols+1 << std::endl;
-    std::cout << std::setprecision(10) << "Delta V1 (at service station) (m/s): " << lambert_solutions[sols].subvec(0,2) << std::endl;
-    std::cout << std::setprecision(10) << "Delta V2 (at client) (m/s): " << lambert_solutions[sols].subvec(3,5) << std::endl;
+    std::cout << std::setprecision(10) << "V1 (at service station) (m/s): " << lambert_solutions[sols].subvec(0,2) << std::endl;
+    std::cout << std::setprecision(10) << "V2 (at client) (m/s): " << lambert_solutions[sols].subvec(3,5) << std::endl;
 
     }
-
 
 
 
