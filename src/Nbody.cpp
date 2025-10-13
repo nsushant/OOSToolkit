@@ -9,6 +9,7 @@
 #include <armadillo>
 #include "Nbody.hpp"
 #include "LambertSolver.hpp"
+#include "Trajectory_selection.hpp"
 
 int main(){
     double altitude_km = 700.0;
@@ -111,5 +112,29 @@ int main(){
     }
 
 
+
+    
+
+        
+
     return 0;
-}
+
+
+
+
+    }       
+
+
+    
+
+
+
+
+
+
+
+
+
+
+
+

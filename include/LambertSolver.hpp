@@ -1,4 +1,4 @@
-
+#pragma once
 
 // import libs
 
@@ -11,7 +11,6 @@
 #include <fstream> 
 #include <armadillo>
 #include <algorithm>
-
 
 
 //r1 = [r11,r12,r13], r2 = [r21,r22,r23], t and μ

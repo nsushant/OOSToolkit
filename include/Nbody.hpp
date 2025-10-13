@@ -1,5 +1,4 @@
-
-
+#pragma once 
 #include <iostream>
 #include <iomanip>
 #include <cmath>
@@ -14,7 +13,6 @@ const double MU_EARTH = 3.986004418e14; // m^3/s^2
 const double R_EARTH  = 6378137.0;      // m
 const double J2       = 1.08262668e-3;
 const double G_CONST  = 6.67430e-11;    // gravitational constant m^3/kg/s^2
-
 
 
 // simulation structs //
