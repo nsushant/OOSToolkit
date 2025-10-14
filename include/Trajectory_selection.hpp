@@ -35,7 +35,6 @@ void find_optimal_trajectory(std::string client_satname,std::string service_satn
     // are both located in the data_access_lib.hpp file 
     std::vector<std::string> satnames = simfile["name"];
 
-
     // .getNumeric casts the strings stored in the csv file to floats
     arma::vec x_sat = simfile.getNumeric("x");
     arma::vec y_sat = simfile.getNumeric("y");
@@ -43,8 +42,8 @@ void find_optimal_trajectory(std::string client_satname,std::string service_satn
     arma::vec vx_sat = simfile.getNumeric("vx");
     arma::vec vy_sat = simfile.getNumeric("vy");
     arma::vec vz_sat = simfile.getNumeric("vz");
-    arma::vec t_sat = simfile.getNumeric("time_s");
-
+    arma::vec t_sat = simfile.getNumeric("time_s");    
+    
 
     // find_idxs_of_match finds the indicies at which satnames == service_satname
     arma::uvec service_sat_idxs = find_idxs_of_match(satnames,service_satname);
@@ -107,9 +106,7 @@ void find_optimal_trajectory(std::string client_satname,std::string service_satn
     int sols_tot = 0; 
 
     // for every possible departure time from the service depot
-    for (int t_ser=0 ; t_ser < available_t_service.n_elem ; t_ser++){
-
-
+    for ( int t_ser=0 ; t_ser < available_t_service.n_elem ; t_ser++ ){
 
         // fetch valid arrival times and calculate possible times of flight
         arma::uvec valid_arrivals = arma::find(available_t_client > available_t_service(t_ser));
@@ -132,17 +129,19 @@ void find_optimal_trajectory(std::string client_satname,std::string service_satn
 
         // for all possible times of flight for the given departure time
         for(int t_cl = 0; t_cl < possible_tofs.n_elem ; t_cl++){
+            
             // we don't need to check all possible times 
-
             // get the position vector of the client at time of arrival
             arma::vec3 r_client_loop = {valid_arrivals_x_client(t_cl),valid_arrivals_y_client(t_cl),valid_arrivals_z_client(t_cl)}; 
             arma::vec3 v_client_loop = {valid_vx_client(t_cl),valid_vy_client(t_cl),valid_vz_client(t_cl)};
 
             // calculate the lambert transfers that are possible
             std::vector<arma::vec> sols = lambert_solver(r_service, r_client_loop, possible_tofs(t_cl), MU_EARTH, 0, 1);
+
             
             // for all possible lambert transfers compute the delta V
             for (int sol=0 ; sol < sols.size(); sol++){
+
                 sols_tot+=1;
                 //std::cout << "Solution number: " << sols_tot << std::endl;
 
@@ -188,5 +187,6 @@ void find_optimal_trajectory(std::string client_satname,std::string service_satn
 
     }
 
+    std::cout << "DeltaVMinima : " << DeltaVMinima << std::endl; 
 
 }

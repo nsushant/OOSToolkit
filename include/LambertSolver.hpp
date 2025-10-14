@@ -202,7 +202,7 @@ std::vector<arma::vec> lambert_solver(const arma::vec3 r1, const arma::vec3 r2,c
         return std::vector<arma::vec>();
     }
 
-    
+
     arma::vec3 vec_r1 = r1;
     arma::vec3 vec_r2 = r2;
     double tof = time_of_flight;

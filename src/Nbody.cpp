@@ -25,7 +25,9 @@ int main(){
     double altitude = R_EARTH + altitude_km*1000.0;
     double period = 2*M_PI * sqrt(pow(altitude,3) / MU_EARTH);
     double dt = 10.0;
-    double t_final = period * 1.05;
+    double t_final = period * 5.05;
+
+    std::cout << "orbital period: " << period;  
 
     force_model force_options;
     force_options.includeJ2 = false;
@@ -60,10 +62,10 @@ int main(){
 
     while(t < (t_final - 1e-9)){
 
-        // only write outputs to csv files every 6 timesteps
+        // only write outputs to csv files every 10 timesteps
         // I am just thinning the datafile here so we can store it easily 
 
-        if(step % 6 == 0){
+        if(step % 10 == 0){
 
             for(size_t i=0;i<sats.size();i++){
 
@@ -121,23 +123,37 @@ int main(){
 
     double tof_optimal; 
     
-    DataFrame simfile("../data/WalkerDelta.csv");
+    DataFrame simfile("../data/WalkerDelta.csv");    
 
+    std::vector<double> t_final_trys = {100,500,1000,1500,10000,15000,20000};  
+
+    for (int rep = 0; rep < t_final_trys.size(); rep++){
+
+    std::cout << "t_final = " << t_final_trys[rep]<<"-----------"<<std::endl; 
+    
     const auto start = std::chrono::high_resolution_clock::now(); 
 
-    find_optimal_trajectory("sat_0","service_1", 0.0, 6000.0 , v1sol, v2sol, r1sol, r2sol,tof_optimal,simfile);    
+    find_optimal_trajectory("sat_0","service_1", 0.0, t_final_trys[rep] , v1sol, v2sol, r1sol, r2sol,tof_optimal,simfile);    
         
     const auto stop = std::chrono::high_resolution_clock::now(); 
 
     // use duration cast method
     auto calculation_duration = std::chrono::duration_cast<std::chrono::milliseconds>(stop - start);
+    std::cout << "execution time (ms): " << calculation_duration.count() << "\n";
 
-      
-    std::cout << "V1 optimal:" << v1sol << "\n"; 
+        std::cout << "V1 optimal:" << v1sol << "\n"; 
     std::cout << "V2 optimal:" << v2sol << "\n"; 
 
+    std::cout << "R1 optimal:" << r1sol << "\n"; 
+    std::cout << "R2 optimal:" << r2sol << "\n"; 
+
     std::cout << "Optimal Tof: " << tof_optimal << "\n";
-    std::cout << "execution time (ms): " << calculation_duration.count() << "\n";
+
+    }
+
+    
+
+  
 
     return 0;
 
