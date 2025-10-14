@@ -7,6 +7,10 @@
 #include <string>
 #include <fstream> 
 #include <armadillo>
+#include <chrono>
+#include <ratio>
+#include <thread>
+
 #include "Nbody.hpp"
 #include "LambertSolver.hpp"
 #include "Trajectory_selection.hpp"
@@ -113,20 +117,27 @@ int main(){
     }*/
 
 
-
     arma::vec v1sol,v2sol,r1sol,r2sol;
 
     double tof_optimal; 
     
     DataFrame simfile("../data/WalkerDelta.csv");
 
-    find_optimal_trajectory("sat_0","service_1", 0.0, 1000.0 , v1sol, v2sol, r1sol, r2sol,tof_optimal,simfile);    
+    const auto start = std::chrono::high_resolution_clock::now(); 
+
+    find_optimal_trajectory("sat_0","service_1", 0.0, 6000.0 , v1sol, v2sol, r1sol, r2sol,tof_optimal,simfile);    
         
-    std::cout << "V1 optimal:" << v1sol; 
-    std::cout << "V2 optimal:" << v2sol; 
+    const auto stop = std::chrono::high_resolution_clock::now(); 
 
+    // use duration cast method
+    auto calculation_duration = std::chrono::duration_cast<std::chrono::milliseconds>(stop - start);
 
-    std::cout << "Optimal Tof:" << tof_optimal;
+      
+    std::cout << "V1 optimal:" << v1sol << "\n"; 
+    std::cout << "V2 optimal:" << v2sol << "\n"; 
+
+    std::cout << "Optimal Tof: " << tof_optimal << "\n";
+    std::cout << "execution time (ms): " << calculation_duration.count() << "\n";
 
     return 0;
 
