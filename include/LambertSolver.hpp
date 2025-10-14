@@ -1,3 +1,27 @@
+
+
+/*
+
+The lambert solver has been adopted from pykep with parts directly obtained from both the 
+github repo located at (https://github.com/esa/pykep/blob/832db1aecd2cf1b6a752f86e50daef3c02ffbdcb/src/lambert_problem.cpp). 
+
+The original publication from D.IZZO detailing the algorithm used to solve lambert's probelm is available 
+at (https://www.esa.int/gsp/ACT/doc/MAD/pub/ACT-RPR-MAD-2014-RevisitingLambertProblem.pdf) with a deviation 
+in algorithm 1 noted between the author's github repo and the published algorithm. the correction has been applied in
+the below implementation ( for details on this see lines 241-264 below and the equations of i_t2 in the springer 
+publication's listing of Algorithm 1.) 
+
+
+Deviations from pykep 
+
+1. The use of armadillo for linear algebra and vector calculations.  
+2. Replacement of boost functions with appropriate equivalents. 
+3. Removal of dependencies on pre-written vector calculation headers in pykep
+4. Addition of minimal error handling lines. 
+
+*/
+
+
 #pragma once
 
 // import libs
@@ -261,12 +285,15 @@ std::vector<arma::vec> lambert_solver(const arma::vec3 r1, const arma::vec3 r2,c
     // calculating non dimensional time of flight T
     double T = sqrt( 2.0*mu / (s*s*s) ) * tof;
 
+    /*
+
     std::cout << "Non-dimensional time of flight T : " << T << std::endl;
     std::cout << "lambda : " << lambda << std::endl;
     std::cout << "chord : " << c << std::endl;
     std::cout << "s : " << s << std::endl;
 
     std::cout << "finding all 'x' for given lambda, T " << std::endl;
+     */
 
     // maximum number of possible revs given travel time
     int M_max = static_cast<int>(T/M_PI); 
@@ -279,10 +306,14 @@ std::vector<arma::vec> lambert_solver(const arma::vec3 r1, const arma::vec3 r2,c
     // T at parabolic limit 
     double T_1 = 2.0/3.0 * (1.0 - lambda_cubed); 
 
+    /*
+    
     std::cout << "lambda cube : " << lambda_cubed << std::endl;
     std::cout << "T_1 : " << T_1 << std::endl;
     std::cout << "T_00 : " << T_00 << std::endl;
     std::cout << "T_0 : " << T_0 << std::endl;
+   
+    */
 
     // see equation 21 in D. Izzo "Revisiting Lambert's Problem"
     // initialize derivatives
@@ -371,7 +402,7 @@ std::vector<arma::vec> lambert_solver(const arma::vec3 r1, const arma::vec3 r2,c
         m_x[0] = pow((T / T_00), 0.69314718055994529 / log(T_1 / T_00)) - 1.0;
     }
 
-    std::cout << "before householder: " << m_x[0] << " tof :" << T_00 <<" , " << T_1 << std::endl;
+    //std::cout << "before householder: " << m_x[0] << " tof :" << T_00 <<" , " << T_1 << std::endl;
 
 
     // 3.1.2 Householder iterations
@@ -394,7 +425,7 @@ std::vector<arma::vec> lambert_solver(const arma::vec3 r1, const arma::vec3 r2,c
 
 
 
-    std::cout << "xlist constructed with elements : " << m_x[0] << std::endl;
+    //std::cout << "xlist constructed with elements : " << m_x[0] << std::endl;
 
 
 
@@ -405,8 +436,8 @@ std::vector<arma::vec> lambert_solver(const arma::vec3 r1, const arma::vec3 r2,c
     
     std::vector<arma::vec> velocity_solutions;
 
-    std::cout << "shape of dirvecs r1, r2 :" << dirvec_r1.n_elem << " , " << dirvec_r2.n_elem << std::endl;
-    std::cout << "shape of dirvecs t1, t2 :" << dirvec_t1.n_elem << " , " << dirvec_t2.n_elem << std::endl;
+    //std::cout << "shape of dirvecs r1, r2 :" << dirvec_r1.n_elem << " , " << dirvec_r2.n_elem << std::endl;
+    //std::cout << "shape of dirvecs t1, t2 :" << dirvec_t1.n_elem << " , " << dirvec_t2.n_elem << std::endl;
 
     // looping over all xy pairs returned from findxy
     for (int elem = 0; elem < m_x.size(); ++elem){

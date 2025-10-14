@@ -10,6 +10,7 @@
 #include "Nbody.hpp"
 #include "LambertSolver.hpp"
 #include "Trajectory_selection.hpp"
+#include "data_access_lib.hpp"
 
 int main(){
     double altitude_km = 700.0;
@@ -89,7 +90,7 @@ int main(){
     csv.close();
     std::cout << "CSV saved to data/WalkerDelta.csv\n";
 
-
+    /*
     // testing lambert solver
     double tof = 120;
 
@@ -109,13 +110,23 @@ int main(){
     std::cout << std::setprecision(10) << "V1 (at service station) (m/s): " << get_v1(lambert_solutions,sols) << std::endl;
     std::cout << std::setprecision(10) << "V2 (at client) (m/s): " << get_v2(lambert_solutions,sols) << std::endl;
 
-    }
+    }*/
 
 
 
+    arma::vec v1sol,v2sol,r1sol,r2sol;
+
+    double tof_optimal; 
     
+    DataFrame simfile("../data/WalkerDelta.csv");
 
+    find_optimal_trajectory("sat_0","service_1", 0.0, 1000.0 , v1sol, v2sol, r1sol, r2sol,tof_optimal,simfile);    
         
+    std::cout << "V1 optimal:" << v1sol; 
+    std::cout << "V2 optimal:" << v2sol; 
+
+
+    std::cout << "Optimal Tof:" << tof_optimal;
 
     return 0;
 

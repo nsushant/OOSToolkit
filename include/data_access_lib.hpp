@@ -8,13 +8,15 @@
 #include <stdexcept>
 #include <armadillo>
 
+
 struct DataFrame {
     std::unordered_map<std::string, std::vector<std::string>> data;
     std::vector<std::string> headers;
 
-    // --- Constructor reads CSV ---
     DataFrame(const std::string& filename) {
+
         std::ifstream file(filename);
+        
         if (!file.is_open()) {
             throw std::runtime_error("Could not open file: " + filename);
         }
@@ -24,9 +26,11 @@ struct DataFrame {
         if (std::getline(file, line)) {
             std::stringstream ss(line);
             std::string col;
+        
             while (std::getline(ss, col, ',')) {
                 headers.push_back(col);
                 data[col] = {};
+        
             }
         }
 

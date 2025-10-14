@@ -8,6 +8,21 @@
 #include <fstream> 
 #include <armadillo>
 
+/*
+Author : S. Nigudkar (2025)
+
+Functions that allow the initialization and propagation of a satellite constellation and a
+service station in circular orbit. Available constellation arrangements are currently limited 
+to - Delta Walker. 
+
+Units used - m,s,kg
+
+Time Integrator used - Runge-Kutta 4
+
+*/
+
+
+
 // simulation constants // 
 const double MU_EARTH = 3.986004418e14; // m^3/s^2
 const double R_EARTH  = 6378137.0;      // m
