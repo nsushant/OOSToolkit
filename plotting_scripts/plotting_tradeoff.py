@@ -31,7 +31,7 @@ def calculate_nondim_T(r1 , r2, mu, tof):
     T_1 = 2/3 * (1 - l**3)
     T_00 = np.acos(l) + l*np.sqrt(1-l)
 
-    return T, T_1, T_00
+    return T, T_1, T_00, l
 
 
 
@@ -65,16 +65,61 @@ deltaV_grid = griddata(
 
 mu = 3.986004418e14
 
+Ts = []
+T1s = []
+T00s = []
+ls = []
 for i in range(len(csvfile['x_ser'].values)): 
     row = csvfile.iloc[i]
     r1 = np.array([row['x_ser'],row['y_ser'],row['z_ser']])
     r2 = np.array([row['x_cl'],row['y_cl'],row['z_cl']])
     tof = row['t_client'] - row['t_depot']
 
-    T, T_1, T_00 = calculate_nondim_T(r1 , r2, mu,tof)
+    T, T_1, T_00, l = calculate_nondim_T(r1 , r2, mu,tof)
+    Ts.append(T)
+    T1s.append(T_1)
+    T00s.append(T_00)
+    ls.append(l)
+
+'''
+
+plt.scatter(tdep,tarrive,c=ls)
+plt.colorbar(label="$\lambda$")
+plt.xlabel('Departure Time [seconds]')
+plt.ylabel('Arrival Time [seconds]')
+plt.scatter(1200,5000,c='yellow',label="optimal transfer")
+plt.legend()
+
+'''
 
 
+T_grid = griddata(
+    (tdep, tarrive),   # input points
+    np.asarray(Ts), # values
+    (T_DEP, T_ARR),    # output grid
+    method='cubic'     # or 'linear'
+)
 
+T1_grid = griddata(
+    (tdep, tarrive),   # input points
+    np.asarray(T1s), # values
+    (T_DEP, T_ARR),    # output grid
+    method='cubic'     # or 'linear'
+)
+
+T0_grid = griddata(
+    (tdep, tarrive),   # input points
+    np.asarray(T00s), # values
+    (T_DEP, T_ARR),    # output grid
+    method='cubic'     # or 'linear'
+)
+
+l_grid = griddata(
+    (tdep, tarrive),   # input points
+    np.asarray(ls), # values
+    (T_DEP, T_ARR),    # output grid
+    method='cubic'     # or 'linear'
+)
 '''
 
 rdiff = (np.sqrt((csvfile['x_ser']-csvfile['x_cl'])**2+(csvfile['y_ser']-csvfile['y_cl'])**2+(csvfile['z_ser']-csvfile['z_ser'])**2))*10**(-6)
@@ -95,6 +140,7 @@ plt.legend()
 
 
 
+
 plt.figure(figsize=(10,6))
 
 vmin, vmax = np.nanmin(deltaV_grid), np.nanmax(deltaV_grid)
@@ -103,10 +149,12 @@ levels = np.logspace(np.log10(vmin), np.log10(vmax), 40)
 #levels = np.linspace(np.nanmin(deltaV_grid), np.nanmax(deltaV_grid), 40)
 contour = plt.contourf(T_DEP, T_ARR, deltaV_grid, levels=levels, cmap='plasma',norm=colors.LogNorm(vmin=vmin, vmax=vmax))
 
-cs = plt.contour(T_DEP, T_ARR, deltaV_grid, colors='black', linewidths=1.0,norm=colors.LogNorm(vmin=vmin, vmax=vmax))
+#cs = plt.contour(T_DEP, T_ARR, deltaV_grid, colors='black', linewidths=1.0,norm=colors.LogNorm(vmin=vmin, vmax=vmax))
+cs = plt.contour(T_DEP, T_ARR, l_grid,colors='black')
+
 plt.clabel(cs, inline=True, fontsize=8, fmt='%.1f')
-plt.xlabel('Departure Time [days]')
-plt.ylabel('Arrival Time [days]')
+plt.xlabel('Departure Time [seconds]')
+plt.ylabel('Arrival Time [seconds]')
 plt.title('Transfer energies over one orbit (6000s)')
 plt.scatter(1200,5000,c='yellow',label="optimal transfer")
 plt.scatter(minima['t_depot'].values,minima['t_client'].values,marker="+",c='r',label='Actual Minima')
