@@ -120,28 +120,47 @@ int main(){
 
 
     arma::vec v1sol,v2sol,r1sol,r2sol;
+    std::vector<arma::vec> trajs; 
 
     double tof_optimal; 
     
     DataFrame simfile("../data/WalkerDelta.csv");    
 
-    std::vector<double> t_final_trys = {100,500,1000,1500,10000,15000,20000};  
+    //std::vector<double> t_final_trys = {100,500,1000,1500,10000,15000,20000};  
 
-    for (int rep = 0; rep < t_final_trys.size(); rep++){
+    //for (int rep = 0; rep < t_final_trys.size(); rep++){
 
-    std::cout << "t_final = " << t_final_trys[rep]<<"-----------"<<std::endl; 
+    //std::cout << "t_final = " << t_final_trys[rep]<<"-----------"<<std::endl; 
     
-    const auto start = std::chrono::high_resolution_clock::now(); 
+    //const auto start = std::chrono::high_resolution_clock::now(); 
 
-    find_optimal_trajectory("sat_0","service_1", 0.0, t_final_trys[rep] , v1sol, v2sol, r1sol, r2sol,tof_optimal,simfile);    
+    find_optimal_trajectory("sat_0","service_1", 0.0, 6000, v1sol, v2sol, r1sol, r2sol,tof_optimal, trajs, simfile);    
+    
+    std::ofstream traj_file("../data/Trajectories.csv");
+    //deltaTotal,possible_tofs(t_cl), available_t_service(t_ser),available_t_client(t_cl)
+    traj_file << "deltaV,tof,t_depot,t_client,x_ser,y_ser,z_ser,x_cl,y_cl,z_cl\n";
+
+    for(int it = 0 ; it < trajs.size() ; it++){
+
+        arma::vec row = trajs[it]; 
+
+        traj_file << row(0) << "," << row(1) << "," << row(2) << ","
+                    << row(3) << "," << row(4) << "," << row(5) << ","
+                    << row(6) << "," << row(7) << ","  << row(8) << "," << row(9) << "\n";
         
-    const auto stop = std::chrono::high_resolution_clock::now(); 
+    }
+
+    traj_file.close();
+
+    //find_all_trajectories()
+
+    //const auto stop = std::chrono::high_resolution_clock::now(); 
 
     // use duration cast method
-    auto calculation_duration = std::chrono::duration_cast<std::chrono::milliseconds>(stop - start);
-    std::cout << "execution time (ms): " << calculation_duration.count() << "\n";
+    //auto calculation_duration = std::chrono::duration_cast<std::chrono::milliseconds>(stop - start);
+    //std::cout << "execution time (ms): " << calculation_duration.count() << "\n";
 
-        std::cout << "V1 optimal:" << v1sol << "\n"; 
+    std::cout << "V1 optimal:" << v1sol << "\n"; 
     std::cout << "V2 optimal:" << v2sol << "\n"; 
 
     std::cout << "R1 optimal:" << r1sol << "\n"; 
@@ -149,15 +168,10 @@ int main(){
 
     std::cout << "Optimal Tof: " << tof_optimal << "\n";
 
-    }
-
-    
-
+    //}
   
 
     return 0;
-
-
 
 
     }       

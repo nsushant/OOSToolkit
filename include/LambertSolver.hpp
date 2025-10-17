@@ -108,6 +108,8 @@ double hypergeometricF(double z, double tol)
     double Cj1 = 0.0;
     double Sj1 = 0.0;
     int j = 0;
+
+    
     while (err > tol) {
         Cj1 = Cj * (3.0 + j) * (1.0 + j) / (2.5 + j) * z / (j + 1);
         Sj1 = Sj + Cj1;
@@ -116,7 +118,9 @@ double hypergeometricF(double z, double tol)
         Cj = Cj1;
         j = j + 1;
     }
+
     return Sj;
+
 }
 
 

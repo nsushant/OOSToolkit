@@ -28,7 +28,8 @@ t_prev, the name of the client satellite (departure destination) and that of the
 
 
 
-void find_optimal_trajectory(std::string client_satname,std::string service_satname, double t_prev, double t_request ,arma::vec &v1sol, arma::vec &v2sol, arma::vec &r1sol, arma::vec &r2sol, double &tof_optimal, DataFrame simfile){
+void find_optimal_trajectory(std::string client_satname,std::string service_satname, double t_prev, double t_request ,arma::vec &v1sol, arma::vec &v2sol, arma::vec &r1sol, arma::vec &r2sol, double &tof_optimal, std::vector<arma::vec>&trajs
+,DataFrame simfile){
 
 
     // methods used on dataframes and the definition of the data structure
@@ -100,10 +101,10 @@ void find_optimal_trajectory(std::string client_satname,std::string service_satn
     arma::vec available_vy_client = vy_client.elem(t_client_idxs);
     arma::vec available_vz_client = vz_client.elem(t_client_idxs);
 
- 
     double DeltaVMinima = -1.0; 
 
     int sols_tot = 0; 
+    
 
     // for every possible departure time from the service depot
     for ( int t_ser=0 ; t_ser < available_t_service.n_elem ; t_ser++ ){
@@ -111,7 +112,7 @@ void find_optimal_trajectory(std::string client_satname,std::string service_satn
         // fetch valid arrival times and calculate possible times of flight
         arma::uvec valid_arrivals = arma::find(available_t_client > available_t_service(t_ser));
         arma::vec possible_tofs = available_t_client.elem(valid_arrivals) - available_t_service(t_ser);
-        
+        arma::vec valid_t_client = available_t_client.elem(valid_arrivals);
         // service station velocities at departure time
         arma::vec3 v_service_loop = {available_vx_service(t_ser), available_vy_service(t_ser), available_vz_service(t_ser)};
 
@@ -127,6 +128,7 @@ void find_optimal_trajectory(std::string client_satname,std::string service_satn
         arma::vec valid_vy_client = available_vy_client.elem(valid_arrivals);
         arma::vec valid_vz_client = available_vz_client.elem(valid_arrivals);
 
+
         // for all possible times of flight for the given departure time
         for(int t_cl = 0; t_cl < possible_tofs.n_elem ; t_cl++){
             
@@ -137,12 +139,14 @@ void find_optimal_trajectory(std::string client_satname,std::string service_satn
 
             // calculate the lambert transfers that are possible
             std::vector<arma::vec> sols = lambert_solver(r_service, r_client_loop, possible_tofs(t_cl), MU_EARTH, 0, 1);
-
             
+            
+
             // for all possible lambert transfers compute the delta V
             for (int sol=0 ; sol < sols.size(); sol++){
 
                 sols_tot+=1;
+                
                 //std::cout << "Solution number: " << sols_tot << std::endl;
 
                 arma::vec v1sol_loop = get_v1(sols,sol);
@@ -154,7 +158,16 @@ void find_optimal_trajectory(std::string client_satname,std::string service_satn
                 arma::vec deltaV1 = v1sol_loop - v_service_loop;
                 arma::vec deltaV2 = v2sol_loop - v_client_loop;
 
+
+
                 double deltaTotal = arma::norm(deltaV1) + arma::norm(deltaV2);
+
+                arma::vec costs = {deltaTotal,possible_tofs(t_cl), available_t_service(t_ser),valid_t_client(t_cl)};
+                arma::vec vec_append = arma::join_cols(costs,r_service); 
+                vec_append = arma::join_cols(vec_append,r_client_loop);
+                //arma::vec vec_append = arma::join_cols(vec_append,costs);
+                
+                trajs.push_back(vec_append);
 
                 // to parallelise with omp you will have to remove this conditional.  
                 // instead write solutions to a file or shared array and have a sparate loop identify the optimal solution 
