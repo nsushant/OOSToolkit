@@ -36,3 +36,4 @@ build/CMakeFiles/Nbody.dir/DependInfo.cmake
 build/CMakeFiles/Nbody.dir/flags.make
 build/CMakeFiles/Nbody.dir/link.txt
 build/CMakeFiles/Nbody.dir/progress.make
+data/**

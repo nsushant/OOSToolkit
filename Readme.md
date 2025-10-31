@@ -8,10 +8,9 @@ To create a simulation based toolkit that integrates ideas from OR and Physics t
 
 + Plotting scripts in python that allow you to visualize initial conditions, view orbits and animate the motions of constellation satellites 
 
-Upcoming features include ;- 
-
 + A lambert solver that lets you optimize trajectories for service shuttles based on servicing demands. 
 
 + Optimization routines that let you construct both an optimal schedule and an optimal inventory management system. 
 
 ![example image](./Figures/Figure_1.png)
+
