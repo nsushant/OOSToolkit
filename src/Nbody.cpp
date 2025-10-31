@@ -1,4 +1,3 @@
-
 #include <iostream>
 #include <iomanip>
 #include <cmath>
@@ -8,299 +7,229 @@
 #include <fstream> 
 #include <armadillo>
 #include <chrono>
-#include <ratio>
-#include <thread>
-
 #include "Nbody.hpp"
-#include "LambertSolver.hpp"
-#include "Trajectory_selection.hpp"
-#include "data_access_lib.hpp"
-#include "Local_search.hpp"
 
-int main(){
-    double altitude_km = 700.0;
-    int num_planes = 5;   
-    int num_satellites = 50;  
-    int relative_phase = 1;   
+/*
+Author : S. Nigudkar (2025)
 
-    double altitude = R_EARTH + altitude_km*1000.0;
-    double period = 2*M_PI * sqrt(pow(altitude,3) / MU_EARTH);
-    double dt = 10.0;
-    double t_final = 60000;
+Functions that allow the initialization and propagation of a satellite constellation and a
+service station in circular orbit. Available constellation arrangements are currently limited 
+to - Delta Walker. 
 
-    std::cout << "orbital period: " << period;  
+Units used - m,s,kg
 
-    force_model force_options;
-    force_options.includeJ2 = false;
-    force_options.includeMutual = false;
+Time Integrator used - Runge-Kutta 4
 
-    std::vector<satellite_object> sats = build_walker_constellation(num_planes, num_satellites, relative_phase,
-                                                        altitude_km * 1000.0,
+*/
 
-                                                        56.0 * M_PI/180.0,
+// sim functions // 
 
-                                                        100.0);
+arma::vec3 acceleration_due_to_central_body (const arma::vec3& r){
+    
+    double r_magnitude = arma::norm(r);
+    
+    if(r_magnitude == 0){ 
 
-    orbital_elements svc;
-    svc.semi_major_axis = R_EARTH + 720000.0;
-    svc.eccentricity = 0.001;
-    svc.inclination = 48.0 * M_PI/180.0;
-    svc.RAAN = 30.0 * M_PI/180.0;
-    svc.augment_of_periapsis = 10.0 * M_PI/180.0;
-    svc.true_anomaly = 0.0;
-    sats.push_back(satellite_object::from_satellite_normal_to_ECI_coords("service_1", svc, 500.0));
+        return arma::vec3();
+    }
 
-    //std::cout << "# time(s) index name x y z vx vy vz\n";
+    return r * (-MU_EARTH / (pow(r_magnitude,3)));
+}
 
-    //write header
-    std::ofstream csv("../data/WalkerDelta.csv");
-    csv << "time_s,index,name,x,y,z,vx,vy,vz\n";
+// acceleration taking j2 perturbations into account
+arma::vec3 acceleration_due_to_J2(const arma::vec3& r){
 
+    double rx = r(0);
+    double ry = r(1);
+    double rz = r(2);
 
-    double t = 0.0;
-    int step = 0;
+    double r2 = rx*rx + ry*ry + rz*rz;
+    double r5 = pow(r2, 2.5);
 
-
-    std::cout<<"Running Simulation"; 
-    while(t < (t_final - 1e-9)){
-        // only write outputs to csv files every 10 timesteps
-        // I am just thinning the datafile here so we can store it easily 
-
-        if(step % 10 == 0){
-
-            for(size_t i=0;i<sats.size();i++){
+    double z2 = rz*rz;
+    
+    double factor = 1.5 * J2 * MU_EARTH * R_EARTH*R_EARTH / r5;
+    
+    double common = 5.0 * z2 / r2 - 1.0;
+    
+    arma::vec3 a;
+    
+    a(0) = rx * factor * common;
+    a(1)= ry * factor * common;
+    a(2) = rz * factor * (5.0 * z2 / r2 - 3.0);
+    return a;
+}
 
 
-                /*
-                std::cout << std::fixed << std::setprecision(3)
-                     << t << " " << i << " " << sats[i].satname << " "
-                     << sats[i].r(0) << " " << sats[i].r(1) << " " << sats[i].r(2) << " "
-                     << sats[i].v(0) << " " << sats[i].v(1) << " " << sats[i].v(2) << "\n";
-                */
+// compute accelerations given froce options
+arma::vec3 compute_acceleration(const satellite_object& sat, const std::vector<satellite_object>& all_sats, const force_model& force_options){
+    
+    arma::vec3 acceleration_total = acceleration_due_to_central_body(sat.r);
+
+    // adding a J2 perturbation
+    // (Non-keplerian)
+
+    if(force_options.includeJ2){
+        acceleration_total += acceleration_due_to_J2(sat.r);
+    }
+
+
+    // the perturbations in orbits caused by the mutual attraction between satellites
+    // (Non keplerian)
+    if(force_options.includeMutual){
+
+        // calculate the mutual force applied by all sats
+        for(const auto& other_satellite : all_sats){
+            // exclude self from calculation (force applied by satellite on itself)
+            if(&other_satellite == &sat) continue;
+
+            // distance between satellites
+            arma::vec3 dr_sat = other_satellite.r - sat.r;
+
+            double d = arma::norm(dr_sat);
             
-                csv << t << "," << i << "," << sats[i].satname << ","
-                    << sats[i].r(0) << "," << sats[i].r(1) << "," << sats[i].r(2) << ","
-                    << sats[i].v(0) << "," << sats[i].v(1) << "," << sats[i].v(2) << "\n";
-            
-            }
+            if(d == 0) continue;
 
+                acceleration_total += dr_sat * (G_CONST * other_satellite.mass / std::pow(d,3));
         }
-
-        runge_kutta_step(sats, dt, force_options);
-        
-        t += dt;
-        step++;
-        //showProgressBar(t, t_final);
-        
-
     }
+    return acceleration_total;
+}
+
+
+// 4th order runge kutta integration to propogate satellite objects forwards in time. 
+void runge_kutta_step(std::vector<satellite_object>& sats, double dt, const force_model& force_options){
     
-    std::cout << std::endl << "Done!" << std::endl;
+    int num_sats = sats.size();
 
-    csv.close();
-    std::cout << "CSV saved to data/WalkerDelta.csv\n";
-
-    /*
-    // testing lambert solver
-    double tof = 120;
-
-    // service satellite at t=0 
-    arma::vec r1 = {5.63576e+06,4.2052e+06,915068};
-
-    // client satellite at t=120
-    arma::vec r2 = {7.02093e+06,540482,717244};
-
-    std::vector<arma::vec> lambert_solutions = lambert_solver(r1, r2, tof, 3.986004418e14 , 0, 1);
-
-    std::cout << "Number of solutions found: " << lambert_solutions.size() << std::endl ;
-
-    for (int sols=0 ; sols < lambert_solutions.size(); sols++){
+    // initialize vectors to store RK additions for both position and velocity
+    std::vector<arma::vec> k1r(num_sats), k1v(num_sats), k2r(num_sats), k2v(num_sats), k3r(num_sats), k3v(num_sats), k4r(num_sats), k4v(num_sats);
     
-    std::cout << "Solution number: " << sols+1 << std::endl;
-    std::cout << std::setprecision(10) << "V1 (at service station) (m/s): " << get_v1(lambert_solutions,sols) << std::endl;
-    std::cout << std::setprecision(10) << "V2 (at client) (m/s): " << get_v2(lambert_solutions,sols) << std::endl;
+    // we will store the outputs of the rk4 passes in this vector  
+    std::vector<satellite_object> temp = sats;
 
-    }*/
-
-
-    arma::vec v1sol,v2sol,r1sol,r2sol;
-    std::vector<arma::vec> trajs; 
-
-    double tof_optimal; 
+    // iterating through all satellites 
     
-    DataFrame simfile("../data/WalkerDelta.csv");    
-
-    //std::vector<double> t_final_trys = {100,500,1000,1500,10000,15000,20000};  
-
-    //for (int rep = 0; rep < t_final_trys.size(); rep++){
-
-    //std::cout << "t_final = " << t_final_trys[rep]<<"-----------"<<std::endl; 
+    // RK4 Algo
     
-    //const auto start = std::chrono::high_resolution_clock::now(); 
+    // first pass = f(yn)
+    // k1 = f(yn + h * (fist pass) / 2 )
+    // k2 = f(yn + h * (k1) / 2 )
+    // k3 = f(yn + h * k2 )
+    // k4 = y_(n+1) = y_n + h/6 (first pass + 2k1 + 2k2 + k3)
 
-    double DeltaVMinima; 
+    // first pass is already stored in sats 
 
-    find_optimal_trajectory("sat_10","service_1", 0.0, 60000.0, v1sol, v2sol, r1sol, r2sol,tof_optimal, trajs, simfile,"lambert",true,DeltaVMinima);    
-    
-    std::ofstream traj_file("../data/Trajectories.csv");
-    //deltaTotal,possible_tofs(t_cl), available_t_service(t_ser),available_t_client(t_cl)
-    traj_file << "deltaV,v1,v2,tof,t_depot,t_client,x_ser,y_ser,z_ser,x_cl,y_cl,z_cl,sol_num,vx_depot,vy_depot,vz_depot,vx_client,vy_client,vz_client\n";
-
-
-    for(int it = 0 ; it < trajs.size() ; it++){
-
-        arma::vec row = trajs[it]; 
-
-        traj_file << row(0) << "," << row(1) << "," << row(2) << ","
-                    << row(3) << "," << row(4) << "," << row(5) << ","
-                    << row(6) << "," << row(7) << ","  << row(8) << "," 
-                    << row(9) << "," << row(10) << ","<< row(11) << "," << row(12)
-                    << "," << row(13) << "," << row(14)<< "," << row(15)
-                    <<"," << row(16) << "," << row(17)<< "," << row(18)<<"\n";
+    // now we use the values in sats to calculate the rk1 
+    for(int i=0;i<num_sats;i++) k1r[i] = sats[i].v;    
+    for(int i=0;i<num_sats;i++) k1v[i] = compute_acceleration(sats[i], sats, force_options);
+    for(int i=0;i<num_sats;i++){
         
+        temp[i].r = sats[i].r + k1r[i]*(0.5*dt);
+        temp[i].v = sats[i].v + k1v[i]*(0.5*dt);
     }
 
-    traj_file.close();
+    // rk2 
 
-    std::vector<std::string> satnames = simfile["name"];
-
-    std::string depot_name = "service_1"; 
-    std::string cl1_name = "sat_0"; 
-    std::string cl2_name = "sat_3";
-    std::string cl3_name = "sat_4";
-
-    arma::vec t_sat = simfile.getNumeric("time_s"); 
-
-    arma::uvec service_sat_idxs = find_idxs_of_match(satnames,depot_name);
-
-    arma::uvec cl1 = find_idxs_of_match(satnames,cl1_name);
-    arma::uvec cl2 = find_idxs_of_match(satnames,cl2_name);
-    arma::uvec cl3 = find_idxs_of_match(satnames,cl3_name);
+    for(int i=0;i<num_sats;i++) k2r[i] = temp[i].v;
+    for(int i=0;i<num_sats;i++) k2v[i] = compute_acceleration(temp[i], temp, force_options);
+    for(int i=0;i<num_sats;i++){
+        
+        temp[i].r = sats[i].r + k2r[i]*(0.5*dt);
+        temp[i].v = sats[i].v + k2v[i]*(0.5*dt);
+    }
 
 
-    
-    arma::vec t_depot = t_sat.elem(service_sat_idxs);  
-    arma::vec t_cl1 = t_sat.elem(cl1);  
-    arma::vec t_cl2 = t_sat.elem(cl2);  
-    arma::vec t_cl3 = t_sat.elem(cl3);  
+    // rk3 
 
-    // initialization of schedule 
-    std::vector<double> t_depart = {0, 8000, 16000, 24000,34000,42000,0.0}; 
-    std::vector<double> t_arrive = {0, 6000,14000,22000,32000,40000,50000};
-
-    double deltaV_of_schedule_init;
-    
-    
-    /*
-    
-    // This part would go through all possible arrival and departure times
-  
-    std::vector<std::string> sat_names_in_schedule = {depot_name,cl1_name,depot_name,cl2_name,depot_name,"sat_10",depot_name};     
-    
-    
-    const auto start = std::chrono::high_resolution_clock::now();
-    schedule_struct init_schedule = create_schedule(deltaV_of_schedule_init, t_arrive, t_depart, sat_names_in_schedule,simfile);
-    
-    std::cout<<"Initial Schedule"<<std::endl;
-    view_schedule(init_schedule); 
-    
-    schedule_struct findopt_schedule = local_search_opt_schedule(deltaV_of_schedule_init, init_schedule, 100, simfile);
-    const auto stop = std::chrono::high_resolution_clock::now();
-    auto calculation_duration = std::chrono::duration_cast<std::chrono::milliseconds>(stop - start);
-
-    std::cout<<"Optimal Schedule"<<std::endl; 
-    view_schedule(findopt_schedule); 
-    std::cout << "execution time (ms): " << calculation_duration.count() << "\n";
-
-    */
-    
-    
-
-    std::vector<std::string> sat_names_in_schedule = {depot_name,cl1_name,depot_name,cl2_name,depot_name,"sat_10",depot_name};     
+    for(int i=0;i<num_sats;i++) k3r[i] = temp[i].v;
+    for(int i=0;i<num_sats;i++) k3v[i] = compute_acceleration(temp[i], temp, force_options);
+    for(int i=0;i<num_sats;i++){
+        
+        temp[i].r = sats[i].r + k3r[i]*dt;
+        temp[i].v = sats[i].v + k3v[i]*dt;
+    }
 
     
-    const auto start = std::chrono::high_resolution_clock::now();
+    // using above passes to compute y_n+1
 
-    double service_time = 1000;
-    schedule_struct init_schedule = create_schedule_lambert_only(deltaV_of_schedule_init,t_arrive, t_depart, sat_names_in_schedule,simfile, service_time);
+    for(int i=0;i<num_sats;i++) k4r[i] = temp[i].v;
+    for(int i=0;i<num_sats;i++) k4v[i] = compute_acceleration(temp[i], temp, force_options);
+    for(int i=0;i<num_sats;i++){
 
-    //double total_t = (init_schedule.blocks[-1].arrival_time - init_schedule.blocks[0].arrival_time);  
+        sats[i].r = sats[i].r + (k1r[i] + k2r[i]*2.0 + k3r[i]*2.0 + k4r[i]) * (dt/6.0);
+        sats[i].v = sats[i].v + (k1v[i] + k2v[i]*2.0 + k3v[i]*2.0 + k4v[i]) * (dt/6.0);
+    }
 
-    std::cout<<" Initial Schedule "<<std::endl;
-    std::cout<<" Total Delta V: "<< deltaV_of_schedule_init << std::endl;
-    view_schedule(init_schedule); 
+
+
+}
+
+
+// distributing satellites in a walker constellation
+std::vector<satellite_object> build_walker_constellation(int num_planes, int total_satnum, int phase ,
+                                             double altitude_m,
+                                             double inclination_rad,
+                                             double sat_mass) {                       
+                                                
+    std::vector<satellite_object> sats;
+
+    // predecided size of array
+    sats.reserve(total_satnum);
+    
+
+    double a = R_EARTH + altitude_m;
+    // num satellites per plane
+    int S = total_satnum / num_planes ;
+    // the right accession (a total of 360 deg or 2pi rads) is divided up into n orbital planes. 
+    double RAAN_step = 2.0 * M_PI / num_planes;
+    
+    // for each plane, 
+    for (int p = 0; p < num_planes; ++p) {
+
+        double RAAN = p * RAAN_step;
+
+        // for each sat in this plane
+        for (int s = 0; s < S; ++s) {
+
+            // apply phasing
+            double phase = 2.0 * M_PI * ( (s + (double)phase * p / num_planes) / S );
+            
+            orbital_elements el;
+            el.semi_major_axis = a;
+            el.eccentricity = 0.0;
+            el.inclination = inclination_rad;
+            el.RAAN = RAAN;
+            el.augment_of_periapsis= 0.0;
+            el.true_anomaly = phase;
+            std::string name = "sat_" + std::to_string(p*S + s);
+            sats.push_back(satellite_object::from_satellite_normal_to_ECI_coords(name, el, sat_mass));
+        }
+    }
+    return sats;
+}
+
+
+double calculate_edelbaum_deltaV(double v0,double v1, double plane_diff_angle){
+
+    double deltaV = pow(v0,2) + pow(v1,2) - 2 * v1 * v0 * (M_PI/2 * plane_diff_angle);
+
+    return sqrt(deltaV);
+
+}
+
+
+void showProgressBar(int progress, int total, int barWidth ) {
+    float ratio = static_cast<float>(progress) / total;
+    int pos = static_cast<int>(barWidth * ratio);
+
+    std::cout << "\r[";
+    for (int i = 0; i < barWidth; ++i) {
+        if (i < pos) std::cout << "█";   // filled part
+        else std::cout << "░";           // empty part
+    }
+    std::cout << "] " << std::setw(3) << int(ratio * 100) << "%\r";
+    std::cout.flush();
     std::cout<<"\n";
-
-
-    //std::vector<std::string> moves_for_local_search = {"add arrival", "sub arrival", "add departure", "sub departure"};
-    
-    std::vector<std::string> moves_for_local_search = {"move_dt2"};
-
-    
-    std::vector<double> grid_move_dts = {100,200,300,400,500,600,700,800,900,1000,1100,1200,1300,1400,1500,1600,1700,1800}; 
-
-    std::vector<double> deltaVsobtained; 
-
-    std::vector<double> TimeImprovementObtained; 
-
-
-    for (int dts = 0 ; dts < grid_move_dts.size(); dts++) {
-
-    double deltaV_of_schedule_init2 = deltaV_of_schedule_init;
-    
-    const auto start = std::chrono::high_resolution_clock::now();
-    schedule_struct findopt_schedule = local_search_opt_schedule_lambert_only(deltaV_of_schedule_init2, init_schedule, grid_move_dts[dts],simfile,service_time,moves_for_local_search);
-    const auto stop = std::chrono::high_resolution_clock::now();
-    
-    auto calculation_duration = std::chrono::duration_cast<std::chrono::milliseconds>(stop - start);
-
-    std::cout << "execution time (ms): " << calculation_duration.count() << "\n";
-
-    double arrival_improved = init_schedule.blocks[init_schedule.blocks.size()-1].arrival_time- findopt_schedule.blocks[findopt_schedule.blocks.size()-1].arrival_time; 
-    
-    double deltaV_improved = deltaV_of_schedule_init - deltaV_of_schedule_init2; 
-
-    view_schedule(findopt_schedule);
-
-    std::cout<<"Total Delta V: "<< deltaV_of_schedule_init2 << std::endl;
-
-    TimeImprovementObtained.push_back(arrival_improved);
-    deltaVsobtained.push_back(deltaV_improved);
-
-    }
-    
-
-    std::ofstream DeltaVsGrid("../data/DeltaV_vs_movesize.csv");
-    DeltaVsGrid << "move_size,deltaV_improvement,time_improvement"<<"\n";  
-
-    //write rows to csv
- 
-    for(int row= 0 ; row < grid_move_dts.size() ; row++ ){
-
-        DeltaVsGrid<<grid_move_dts[row]<<","<<deltaVsobtained[row]<<","<<TimeImprovementObtained[row]<<"\n";
-    
-    }
-    
-
-    DeltaVsGrid.close(); 
-
-
-    return 0;
-
-
-    }       
-
-
-    
-
-
-
-
-
-
-
-
-
-
-
+}
 

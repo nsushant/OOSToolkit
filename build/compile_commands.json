@@ -1,8 +1,0 @@
-[
-{
-  "directory": "/Users/sushantnigudkar/Downloads/NbodyWalkerDelta/build",
-  "command": "/opt/homebrew/bin/aarch64-apple-darwin24-g++-15  -I/opt/homebrew/Cellar/armadillo/15.0.3/include -I/Users/sushantnigudkar/Downloads/NbodyWalkerDelta/include -g -std=gnu++17 -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.4.sdk -o CMakeFiles/Nbody.dir/src/Nbody.cpp.o -c /Users/sushantnigudkar/Downloads/NbodyWalkerDelta/src/Nbody.cpp",
-  "file": "/Users/sushantnigudkar/Downloads/NbodyWalkerDelta/src/Nbody.cpp",
-  "output": "CMakeFiles/Nbody.dir/src/Nbody.cpp.o"
-}
-]

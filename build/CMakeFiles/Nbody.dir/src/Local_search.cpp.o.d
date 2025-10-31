@@ -1,5 +1,5 @@
-CMakeFiles/Nbody.dir/src/Nbody.cpp.o: \
-  /Users/sushantnigudkar/Downloads/NbodyWalkerDelta/src/Nbody.cpp \
+CMakeFiles/Nbody.dir/src/Local_search.cpp.o: \
+  /Users/sushantnigudkar/Downloads/NbodyWalkerDelta/src/Local_search.cpp \
   /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.4.sdk/usr/include/c++/v1/iostream \
   /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.4.sdk/usr/include/c++/v1/__config \
   /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.4.sdk/usr/include/c++/v1/__config_site \
@@ -1520,4 +1520,8 @@ CMakeFiles/Nbody.dir/src/Nbody.cpp.o: \
   /opt/homebrew/Cellar/armadillo/15.0.3/include/armadillo_bits/newarp_UpperHessenbergEigen_meat.hpp \
   /opt/homebrew/Cellar/armadillo/15.0.3/include/armadillo_bits/newarp_UpperHessenbergQR_meat.hpp \
   /opt/homebrew/Cellar/armadillo/15.0.3/include/armadillo_bits/compiler_setup_post.hpp \
-  /Users/sushantnigudkar/Downloads/NbodyWalkerDelta/include/Nbody.hpp
+  /Users/sushantnigudkar/Downloads/NbodyWalkerDelta/include/Trajectory_selection.hpp \
+  /Users/sushantnigudkar/Downloads/NbodyWalkerDelta/include/LambertSolver.hpp \
+  /Users/sushantnigudkar/Downloads/NbodyWalkerDelta/include/data_access_lib.hpp \
+  /Users/sushantnigudkar/Downloads/NbodyWalkerDelta/include/Nbody.hpp \
+  /Users/sushantnigudkar/Downloads/NbodyWalkerDelta/include/Local_search.hpp
