@@ -65,7 +65,7 @@ void move_add_arrival(std::vector<task_block> &blocks, int b_index, double dt){
 
     if (b_index < (blocks.size() - 1)){
 
-    if (blocks[b_index].arrival_time + dt < blocks[b_index].departure_time){
+    if ((blocks[b_index].arrival_time + dt + blocks[b_index].service_duration) < blocks[b_index].departure_time){
         
         blocks[b_index].arrival_time += dt;
 
@@ -84,7 +84,7 @@ void move_add_departure(std::vector<task_block> &blocks, int b_index, double dt)
 
     if (b_index + 1 <= blocks.size()-1){
 
-    if (blocks[b_index].departure_time + dt < blocks[b_index + 1].arrival_time){
+    if (blocks[b_index].departure_time + dt  < blocks[b_index + 1].arrival_time){
         
         blocks[b_index].departure_time += dt;  
 
@@ -103,13 +103,10 @@ void move_sub_departure(std::vector<task_block> &blocks, int b_index, double dt)
 
     if (b_index < (blocks.size()-1)){
 
-        if (blocks[b_index].departure_time - dt > blocks[b_index].arrival_time){
+        if (blocks[b_index].departure_time - dt > (blocks[b_index].arrival_time + blocks[b_index].service_duration)){
 
             blocks[b_index].departure_time -= dt;
         }
-
-
-
 
     }
 
@@ -138,16 +135,100 @@ void move_sub_arrival(std::vector<task_block> &blocks, int b_index, double dt){
     }
     
 }
+void swap_slots(std::vector<task_block> &blocks, int b_index, double dt,DataFrame simfile){
 
-void move_wrapper(std::vector<task_block> &blocks, int b_index, double dt, std::string method){
+    double deadline = blocks[b_index].demand_deadline; 
+
+    // get valid blocks
+    std::vector<int> candidate_blocks; 
+
+    if (b_index % 2 == 0){
+
+        task_block copyblock = blocks[b_index + 2];         
+        
+
+        if(copyblock.departure_time < deadline){
+            
+            double service_minimum = blocks[b_index].arrival_time + blocks[b_index].service_duration; 
+            
+            blocks[b_index + 2].satname = blocks[b_index].satname; 
+            blocks[b_index + 2].service_duration = blocks[b_index].service_duration;
+            blocks[b_index + 2].demand_deadline = blocks[b_index].demand_deadline;
+
+
+            blocks[b_index].demand_deadline = copyblock.demand_deadline;
+            blocks[b_index].service_duration = copyblock.service_duration;
+            blocks[b_index].satname = copyblock.satname;
+
+
+            bool timeslot_not_long_enough = (blocks[b_index + 2].departure_time < (blocks[b_index + 2].arrival_time + blocks[b_index + 2].service_duration));
+
+
+            if (timeslot_not_long_enough){
+
+                double time_adjustment_needed =  (blocks[b_index + 2].arrival_time + blocks[b_index + 2].service_duration) - blocks[b_index + 2].departure_time;
+
+                blocks[b_index + 2].arrival_time -= time_adjustment_needed; 
+                
+                blocks[b_index + 1].departure_time -= time_adjustment_needed; 
+                blocks[b_index + 1].arrival_time -= time_adjustment_needed; 
+
+                blocks[b_index].departure_time -= time_adjustment_needed; 
+
+                std::cout<<"proposed switch was invalid, departure time < service_time + arrival_time, adjustment made"; 
+
+            }
+
+            bool timeslot_not_long_enough_2 = (blocks[b_index].departure_time < (blocks[b_index].arrival_time + blocks[b_index].service_duration));
+
+            if (timeslot_not_long_enough_2){
+
+
+                double time_adjustment_needed =  (blocks[b_index].arrival_time + blocks[b_index].service_duration) - blocks[b_index].departure_time;
+
+                blocks[b_index].departure_time += time_adjustment_needed; 
+
+                
+                blocks[b_index + 1].departure_time += time_adjustment_needed; 
+                blocks[b_index + 1].arrival_time += time_adjustment_needed; 
+
+                
+                blocks[b_index + 2].arrival_time += time_adjustment_needed; 
+
+
+            }
+
+
+
+
+            //recalculate delta Vs
+            find_optimal_trajectory_no_iter(blocks[b_index-1].satname, blocks[b_index].satname, blocks[b_index-1].departure_time, blocks[b_index].arrival_time, simfile, blocks[b_index].deltaV_arrival); 
+            find_optimal_trajectory_no_iter(blocks[b_index].satname, blocks[b_index+1].satname, blocks[b_index].departure_time, blocks[b_index+1].arrival_time, simfile, blocks[b_index+1].deltaV_arrival); 
+            find_optimal_trajectory_no_iter(blocks[b_index+1].satname, blocks[b_index+2].satname, blocks[b_index+1].departure_time, blocks[b_index+2].arrival_time, simfile, blocks[b_index+2].deltaV_arrival); 
+            find_optimal_trajectory_no_iter(blocks[b_index+2].satname, blocks[b_index+3].satname, blocks[b_index+2].departure_time, blocks[b_index+3].arrival_time, simfile, blocks[b_index+3].deltaV_arrival); 
+
+
+        }
+
+
+    }
+    
+}
+
+
+void move_wrapper(std::vector<task_block> &blocks, int b_index, double dt, std::string method,DataFrame simfile){
 
     if (method == "add arrival"){ move_add_arrival(blocks, b_index, dt);}
     if (method == "add departure"){ move_add_departure(blocks, b_index, dt);}
     if (method == "sub arrival"){ move_sub_arrival(blocks, b_index, dt);}
     if (method == "sub departure"){ move_sub_departure(blocks, b_index, dt);}
     if (method == "move_dt2"){move_dt2(blocks, b_index, dt);}
+    if (method == "swap_slots"){swap_slots(blocks, b_index, dt, simfile);}
 
 }
+
+
+
 
 
 
@@ -182,8 +263,6 @@ void view_schedule(schedule_struct schedule_to_print){
 
 
 }
-
-
 
 
 schedule_struct create_schedule(double &deltaV_of_schedule_init, std::vector<double> arrival_times,std::vector<double> departure_times, std::vector<std::string> satnames,DataFrame simfile){
@@ -301,7 +380,17 @@ schedule_struct local_search_opt_schedule_lambert_only(double &init_deltaV, sche
 
                 schedule_struct schedule_sol = init_schedule;
 
-                move_wrapper(schedule_sol.blocks, b, dt_move,move_methods[m]);
+                if (move_methods[m] == "swap_slots"){
+
+                    move_wrapper(schedule_sol.blocks, b, dt_move,move_methods[m],simfile);
+            
+                }
+
+                else{
+                    
+                    move_wrapper(schedule_sol.blocks, b, dt_move,move_methods[m],simfile);
+
+                }
 
                 if (b == 0){
 
@@ -319,13 +408,17 @@ schedule_struct local_search_opt_schedule_lambert_only(double &init_deltaV, sche
                 else {
                     
 
-                double DeltaVMinimaopt; 
+                double DeltaVMinimaopt;
+                
+                if (move_methods[m] != "swap_slots"){
 
-                find_optimal_trajectory_no_iter(schedule_sol.blocks[b-1].satname, schedule_sol.blocks[b].satname, schedule_sol.blocks[b-1].departure_time + schedule_sol.blocks[b-1].service_duration, schedule_sol.blocks[b].arrival_time, simfile, DeltaVMinimaopt); 
+                find_optimal_trajectory_no_iter(schedule_sol.blocks[b-1].satname, schedule_sol.blocks[b].satname, schedule_sol.blocks[b-1].departure_time, schedule_sol.blocks[b].arrival_time, simfile, DeltaVMinimaopt); 
                 
                 //find_optimal_trajectory_no_iter(schedule_sol.blocks[b-1].satname, schedule_sol.blocks[b].satname, schedule_sol.blocks[b-1].arrival_time + service_time, schedule_sol.blocks[b].arrival_time, simfile, DeltaVMinimaopt); 
 
                 schedule_sol.blocks[b].deltaV_arrival = DeltaVMinimaopt;
+            
+                }
                 
                 list_of_schedules.push_back(schedule_sol); 
             

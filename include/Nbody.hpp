@@ -141,3 +141,7 @@ double calculate_edelbaum_deltaV(double v0,double v1, double plane_diff_angle);
 
 void showProgressBar(int progress, int total, int barWidth = 50);
 
+void run_simulation(    std::string save_to_file,std::string arrangement,double t_final = 60000,
+                        double dt =10.0, double altitude_km = 700.0,double num_planes = 5, 
+                        double num_satellites = 50, double relative_phase = 1);
+

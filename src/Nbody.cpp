@@ -233,3 +233,100 @@ void showProgressBar(int progress, int total, int barWidth ) {
     std::cout<<"\n";
 }
 
+
+
+void run_simulation( std::string save_to_file, std::string arrangement, double t_final,double dt, double altitude_km,double num_planes, double num_satellites, double relative_phase){
+
+
+    double altitude = R_EARTH + altitude_km*1000.0;
+    double period = 2*M_PI * sqrt(pow(altitude,3) / MU_EARTH);
+
+    std::cout << "orbital period: " << period;  
+
+    force_model force_options;
+    force_options.includeJ2 = false;
+    force_options.includeMutual = false;
+
+    std::vector<satellite_object> sats; 
+
+    if (arrangement == "walker_delta"){
+
+        std::vector<satellite_object> sats = build_walker_constellation(num_planes, num_satellites, relative_phase,
+                                                                        altitude_km * 1000.0,
+                                                                        56.0 * M_PI/180.0,
+                                                                        100.0);
+
+    } 
+
+    if (arrangement == "circular_orbit"){
+        
+    }
+
+    if (arrangement == "flower_constellation"){
+        
+    }
+
+    if (arrangement == "spiral_constellation"){
+        
+    }
+
+    if (arrangement == "custom"){
+        
+    }
+
+
+    orbital_elements svc;
+    svc.semi_major_axis = R_EARTH + 720000.0;
+    svc.eccentricity = 0.001;
+    svc.inclination = 48.0 * M_PI/180.0;
+    svc.RAAN = 30.0 * M_PI/180.0;
+    svc.augment_of_periapsis = 10.0 * M_PI/180.0;
+    svc.true_anomaly = 0.0;
+    sats.push_back(satellite_object::from_satellite_normal_to_ECI_coords("service_1", svc, 500.0));
+
+    //std::cout << "# time(s) index name x y z vx vy vz\n";
+
+    //write header
+    std::ofstream csv("../data/"+save_to_file);
+    csv << "time_s,index,name,x,y,z,vx,vy,vz\n";
+
+
+    double t = 0.0;
+    int step = 0;
+
+
+    std::cout<<"Running Simulation"; 
+    while(t < (t_final - 1e-9)){
+        // only write outputs to csv files every 10 timesteps
+        // I am just thinning the datafile here so we can store it easily 
+
+        if(step % 10 == 0){
+
+            for(size_t i=0;i<sats.size();i++){
+
+            
+                csv << t << "," << i << "," << sats[i].satname << ","
+                    << sats[i].r(0) << "," << sats[i].r(1) << "," << sats[i].r(2) << ","
+                    << sats[i].v(0) << "," << sats[i].v(1) << "," << sats[i].v(2) << "\n";
+            
+            }
+
+        }
+
+        runge_kutta_step(sats, dt, force_options);
+        
+        t += dt;
+        step++;
+        //showProgressBar(t, t_final);
+        
+
+    }
+    
+    std::cout << std::endl << "Done!" << std::endl;
+
+    csv.close();
+    std::cout << "CSV saved to data/WalkerDelta.csv\n";
+
+
+
+}

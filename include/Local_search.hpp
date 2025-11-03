@@ -25,6 +25,7 @@ struct task_block{
     std::string satname; 
     double deltaV_arrival; 
     double service_duration;
+    double demand_deadline;
 
 };
 
@@ -45,10 +46,10 @@ void move_add_departure(std::vector<task_block> &blocks, int b_index, double dt)
 void move_sub_departure(std::vector<task_block> &blocks, int b_index, double dt);
 void move_sub_arrival(std::vector<task_block> &blocks, int b_index, double dt);
 
+void swap_slots(std::vector<task_block> &blocks, int b_index, double dt,DataFrame simfile);
 
+void move_wrapper(std::vector<task_block> &blocks, int b_index, double dt, std::string method,DataFrame simfile);
 
-void move_wrapper(std::vector<task_block> &blocks, int b_index, double dt, std::string method);
- 
 
 void view_schedule(schedule_struct schedule_to_print); 
 

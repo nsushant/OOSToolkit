@@ -1,0 +1,2 @@
+set(__QT_DEPLOY_TARGET_Nbody_FILE /Users/sushantnigudkar/Downloads/NbodyWalkerDelta/build/Nbody)
+set(__QT_DEPLOY_TARGET_Nbody_TYPE EXECUTABLE)
