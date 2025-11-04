@@ -66,7 +66,8 @@ schedule_struct create_schedule_lambert_only(   double &deltaV_of_schedule_init,
                                                 std::vector<double> departure_times, 
                                                 std::vector<std::string> satnames,
                                                 DataFrame simfile, 
-                                                double service_time=0.0  );
+                                                double service_time=0.0, 
+                                                std::vector<double> deadlines={});
 
 
 

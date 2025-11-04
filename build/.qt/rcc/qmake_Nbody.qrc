@@ -1,6 +1,0 @@
-<RCC>
-  <qresource prefix="/Nbody">
-    <file alias="qmldir">/Users/sushantnigudkar/Downloads/NbodyWalkerDelta/build/Nbody/qmldir</file>
-  </qresource>
-</RCC>
-
