@@ -1,0 +1,37 @@
+[
+{
+  "directory": "/home/nsushant/OOSToolkit/build",
+  "command": "/usr/bin/c++  -I/home/nsushant/OOSToolkit/include -std=gnu++17 -o CMakeFiles/Nbody.dir/src/Exact_methods.cpp.o -c /home/nsushant/OOSToolkit/src/Exact_methods.cpp",
+  "file": "/home/nsushant/OOSToolkit/src/Exact_methods.cpp"
+},
+{
+  "directory": "/home/nsushant/OOSToolkit/build",
+  "command": "/usr/bin/c++  -I/home/nsushant/OOSToolkit/include -std=gnu++17 -o CMakeFiles/Nbody.dir/src/LambertSolver.cpp.o -c /home/nsushant/OOSToolkit/src/LambertSolver.cpp",
+  "file": "/home/nsushant/OOSToolkit/src/LambertSolver.cpp"
+},
+{
+  "directory": "/home/nsushant/OOSToolkit/build",
+  "command": "/usr/bin/c++  -I/home/nsushant/OOSToolkit/include -std=gnu++17 -o CMakeFiles/Nbody.dir/src/Local_search.cpp.o -c /home/nsushant/OOSToolkit/src/Local_search.cpp",
+  "file": "/home/nsushant/OOSToolkit/src/Local_search.cpp"
+},
+{
+  "directory": "/home/nsushant/OOSToolkit/build",
+  "command": "/usr/bin/c++  -I/home/nsushant/OOSToolkit/include -std=gnu++17 -o CMakeFiles/Nbody.dir/src/Nbody.cpp.o -c /home/nsushant/OOSToolkit/src/Nbody.cpp",
+  "file": "/home/nsushant/OOSToolkit/src/Nbody.cpp"
+},
+{
+  "directory": "/home/nsushant/OOSToolkit/build",
+  "command": "/usr/bin/c++  -I/home/nsushant/OOSToolkit/include -std=gnu++17 -o CMakeFiles/Nbody.dir/src/Sim.cpp.o -c /home/nsushant/OOSToolkit/src/Sim.cpp",
+  "file": "/home/nsushant/OOSToolkit/src/Sim.cpp"
+},
+{
+  "directory": "/home/nsushant/OOSToolkit/build",
+  "command": "/usr/bin/c++  -I/home/nsushant/OOSToolkit/include -std=gnu++17 -o CMakeFiles/Nbody.dir/src/Trajectory_selection.cpp.o -c /home/nsushant/OOSToolkit/src/Trajectory_selection.cpp",
+  "file": "/home/nsushant/OOSToolkit/src/Trajectory_selection.cpp"
+},
+{
+  "directory": "/home/nsushant/OOSToolkit/build",
+  "command": "/usr/bin/c++  -I/home/nsushant/OOSToolkit/include -std=gnu++17 -o CMakeFiles/Nbody.dir/src/data_access_lib.cpp.o -c /home/nsushant/OOSToolkit/src/data_access_lib.cpp",
+  "file": "/home/nsushant/OOSToolkit/src/data_access_lib.cpp"
+}
+]

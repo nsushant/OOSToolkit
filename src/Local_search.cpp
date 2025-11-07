@@ -82,8 +82,8 @@ void move_add_arrival(std::vector<task_block> &blocks, int b_index, double dt) {
 void move_add_departure(std::vector<task_block> &blocks, int b_index,
                         double dt) {
 
-  //for all but the last block                          
-  if ( b_index != (blocks.size() - 2) ) {
+  //for all but the second to last block                          
+  if ( b_index != (blocks.size() - 1) ) {
 
     // make sure the shuttle departs before the next expected arrival
     if (blocks[b_index].departure_time + dt <
@@ -92,8 +92,6 @@ void move_add_departure(std::vector<task_block> &blocks, int b_index,
       blocks[b_index].departure_time += dt;
     }
 
-
-    else if(b_index == 0){ blocks[b_index].departure_time += dt;}
 
   }
 
@@ -104,7 +102,7 @@ void move_sub_departure(std::vector<task_block> &blocks, int b_index,
                         double dt) {
   
   // for all but the last block
-  if (b_index < (blocks.size() - 2)) {
+  if (b_index != (blocks.size() - 1)) {
 
     if (blocks[b_index].departure_time - dt > (blocks[b_index].arrival_time + blocks[b_index].service_duration)) {
 
@@ -117,7 +115,7 @@ void move_sub_departure(std::vector<task_block> &blocks, int b_index,
 }
 
 
-void move_sub_arrival(std::vector<task_block> &blocks, int b_index, double dt) {
+void move_sub_arrival(std::vector<task_block> &blocks, int b_index, double dt){
 
   // for all but the first block
   if (b_index > 0 ) {
@@ -129,12 +127,6 @@ void move_sub_arrival(std::vector<task_block> &blocks, int b_index, double dt) {
 
   }
 
-  // for the first block
-  else {
-
-      blocks[b_index].arrival_time -= 0;
-    
-  }
 
 }
 
@@ -626,3 +618,79 @@ schedule_struct local_search_opt_schedule(double init_deltaV,
 
   return optimal_schedule;
 }
+
+
+
+void run_local_searh( DataFrame simfile, double move_size,  
+                      std::vector<std::string> moves_to_consider,
+                      std::vector<std::string> sat_names_in_schedule ,
+                      std::vector<double> t_depart, std::vector<double> t_arrive, 
+                      double &deltaV_of_schedule, double service_time){
+
+
+
+
+
+
+    //construct initial schedule using provided departure and arrival times 
+    schedule_struct init_schedule = create_schedule_lambert_only(deltaV_of_schedule, t_arrive, t_depart, 
+                                                                  sat_names_in_schedule,simfile, service_time);
+
+    std::cout<< "\n"; 
+
+    view_schedule(init_schedule);
+    
+    std::cout<< "\n"; 
+
+    std::cout << "Total Delta V: "<< deltaV_of_schedule;
+
+    // Now the optimal schedule is calculated using local search
+    schedule_struct findopt_schedule = local_search_opt_schedule_lambert_only(deltaV_of_schedule, init_schedule, move_size, 
+                                                                              simfile,service_time, moves_to_consider);
+    
+    std::cout<<"\n";
+
+    view_schedule(findopt_schedule);
+
+    std::cout<<"\n";
+
+    std::cout<<"Total Delta V: "<< deltaV_of_schedule;
+
+
+    
+
+
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

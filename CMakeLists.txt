@@ -5,6 +5,7 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # Point CMake to Homebrew Armadillo
 set(CMAKE_PREFIX_PATH "/opt/homebrew/Cellar/armadillo/15.0.3")
