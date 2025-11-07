@@ -394,3 +394,46 @@ void find_optimal_trajectory_no_iter(std::string service_satname, std::string cl
     DeltaVMinima = deltaVsols; 
 
 }
+
+
+  void run_exhaustive_search(std::string sat_from, std::string sat_to, double t_from, double t_to, std::string simfilename, std::string outputfilename){
+
+    DataFrame simfile("../data/"+simfilename);
+  
+    arma::vec v1sol, v2sol, r1sol, r2sol;
+    std::vector<arma::vec> trajs;
+
+    double tof_optimal;
+    double DeltaVMinima;
+
+    find_optimal_trajectory(sat_from,sat_to, t_from, t_to, v1sol, v2sol,
+                          r1sol, r2sol, tof_optimal, trajs, simfile, "lambert",
+                          true, DeltaVMinima);
+
+  std::ofstream traj_file("../data/"+outputfilename);
+  // deltaTotal,possible_tofs(t_cl),
+  // available_t_service(t_ser),available_t_client(t_cl)
+  traj_file
+      << "deltaV,v1,v2,tof,t_depot,t_client,x_ser,y_ser,z_ser,x_cl,y_cl,z_cl,"
+         "sol_num,vx_depot,vy_depot,vz_depot,vx_client,vy_client,vz_client\n";
+
+  for (int it = 0; it < trajs.size(); it++) {
+
+    arma::vec row = trajs[it];
+
+    traj_file << row(0) << "," << row(1) << "," << row(2) << "," << row(3)
+              << "," << row(4) << "," << row(5) << "," << row(6) << ","
+              << row(7) << "," << row(8) << "," << row(9) << "," << row(10)
+              << "," << row(11) << "," << row(12) << "," << row(13) << ","
+              << row(14) << "," << row(15) << "," << row(16) << "," << row(17)
+              << "," << row(18) <<"\n";
+  }
+
+  traj_file.close();
+
+
+  }
+
+
+
+

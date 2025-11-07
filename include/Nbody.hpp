@@ -32,6 +32,7 @@ const double J2       = 1.08262668e-3;
 const double G_CONST  = 6.67430e-11;    // gravitational constant m^3/kg/s^2
 
 
+
 // simulation structs //
 
 struct orbital_elements
@@ -112,6 +113,8 @@ struct force_model {
 
 // sim functions // 
 
+double deg_to_rads(double deg); 
+
 arma::vec3 acceleration_due_to_central_body (const arma::vec3& r);
 
 // acceleration taking j2 perturbations into account
@@ -140,4 +143,8 @@ double calculate_edelbaum_deltaV(double v0,double v1, double plane_diff_angle);
 
 
 void showProgressBar(int progress, int total, int barWidth = 50);
+
+void run_simulation(    std::string save_to_file, std::string arrangement, double t_final,double dt, 
+                        double altitude_m,double num_planes, double num_satellites, 
+                        double relative_phase, double inclination_in_radians, double satmass=1.0);
 
