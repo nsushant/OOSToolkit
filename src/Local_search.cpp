@@ -20,14 +20,21 @@ search.
 // moves
 void move_dt(task_block &tb, double dt) {
 
+  // requires both lambert tranfers to and from the block to be 
+  // recomputed
+
   tb.arrival_time -= dt;
   tb.departure_time -= dt;
+
 }
+
+
+
 void move_dt2(std::vector<task_block> &blocks, int b_index, double dt) {
 
   if (b_index == 0) {
 
-    blocks[b_index].departure_time += dt / 2 - ((int)dt / 2 % 100);
+    blocks[b_index].departure_time += dt; /// 2 - ((int)dt / 2 % 100);
 
   }
 
@@ -53,70 +60,85 @@ void move_dt2(std::vector<task_block> &blocks, int b_index, double dt) {
 }
 void move_add_arrival(std::vector<task_block> &blocks, int b_index, double dt) {
 
-  if (b_index < (blocks.size() - 1)) {
+    //except for the first block
+    if (b_index > 0 ) {
+        
+    // ensure that the addition in arrival time does not make arrival occur after the departure time
+    if ((blocks[b_index].arrival_time + blocks[b_index].service_duration + dt) < blocks[b_index].departure_time) {
 
-    if ((blocks[b_index].arrival_time + dt + blocks[b_index].service_duration) <
-        blocks[b_index].departure_time) {
+        blocks[b_index].arrival_time += dt;
 
-      blocks[b_index].arrival_time += dt;
     }
 
-  }
 
-  else {
+    // since the departure time of the last block is 0 
 
-    blocks[b_index].arrival_time += dt;
-  }
+    else if(b_index == (blocks.size()-1)){blocks[b_index].arrival_time += dt;}
+
+    }
+
+
 }
 void move_add_departure(std::vector<task_block> &blocks, int b_index,
                         double dt) {
 
-  if (b_index + 1 <= blocks.size() - 1) {
+  //for all but the last block                          
+  if ( b_index != (blocks.size() - 2) ) {
 
+    // make sure the shuttle departs before the next expected arrival
     if (blocks[b_index].departure_time + dt <
         blocks[b_index + 1].arrival_time) {
 
       blocks[b_index].departure_time += dt;
     }
 
+
+    else if(b_index == 0){ blocks[b_index].departure_time += dt;}
+
   }
 
-  else {
 
-    blocks[b_index].departure_time += 0;
-  }
 }
+
 void move_sub_departure(std::vector<task_block> &blocks, int b_index,
                         double dt) {
+  
+  // for all but the last block
+  if (b_index < (blocks.size() - 2)) {
 
-  if (b_index < (blocks.size() - 1)) {
-
-    if (blocks[b_index].departure_time - dt >
-        (blocks[b_index].arrival_time + blocks[b_index].service_duration)) {
+    if (blocks[b_index].departure_time - dt > (blocks[b_index].arrival_time + blocks[b_index].service_duration)) {
 
       blocks[b_index].departure_time -= dt;
     }
   }
+
+
+
 }
+
+
 void move_sub_arrival(std::vector<task_block> &blocks, int b_index, double dt) {
 
-  if ((b_index - 1) < (blocks.size() - 1)) {
+  // for all but the first block
+  if (b_index > 0 ) {
 
-    if (blocks[b_index].arrival_time - dt >
-        blocks[b_index - 1].departure_time) {
+    if (blocks[b_index].arrival_time - dt > blocks[b_index - 1].departure_time) {
 
       blocks[b_index].arrival_time -= dt;
     }
 
   }
 
+  // for the first block
   else {
-    if (blocks[b_index].arrival_time - dt > 0) {
 
-      blocks[b_index].arrival_time -= dt;
-    }
+      blocks[b_index].arrival_time -= 0;
+    
   }
+
 }
+
+
 void swap_slots(std::vector<task_block> &blocks, int b_index, double dt,
                 DataFrame simfile) {
 
@@ -424,18 +446,46 @@ schedule_struct local_search_opt_schedule_lambert_only(
 
           if (move_methods[m] != "swap_slots") {
 
-            find_optimal_trajectory_no_iter(
-                schedule_sol.blocks[b - 1].satname,
-                schedule_sol.blocks[b].satname,
-                schedule_sol.blocks[b - 1].departure_time,
-                schedule_sol.blocks[b].arrival_time, simfile, DeltaVMinimaopt);
 
+            if((move_methods[m] == "add departure") || (move_methods[m]== "sub departure")){
+              
+              if (b < (schedule_sol.blocks.size()-2)){
+              
+
+              find_optimal_trajectory_no_iter(
+                  schedule_sol.blocks[b].satname,
+                  schedule_sol.blocks[b + 1].satname,
+                  schedule_sol.blocks[b].departure_time,
+                  schedule_sol.blocks[b + 1].arrival_time, simfile, DeltaVMinimaopt);
+
+              
+                schedule_sol.blocks[b+1].deltaV_arrival = DeltaVMinimaopt;
+
+              
+              }
+
+            }
+
+
+            if((move_methods[m] == "add arrival") || (move_methods[m]== "sub arrival")){
+
+          
+                find_optimal_trajectory_no_iter(
+                  schedule_sol.blocks[b - 1].satname,
+                  schedule_sol.blocks[b].satname,
+                  schedule_sol.blocks[b - 1].departure_time,
+                  schedule_sol.blocks[b].arrival_time, simfile, DeltaVMinimaopt);
+              
+              
+                schedule_sol.blocks[b].deltaV_arrival = DeltaVMinimaopt;
+
+
+            }
             // find_optimal_trajectory_no_iter(schedule_sol.blocks[b-1].satname,
             // schedule_sol.blocks[b].satname,
             // schedule_sol.blocks[b-1].arrival_time + service_time,
             // schedule_sol.blocks[b].arrival_time, simfile, DeltaVMinimaopt);
 
-            schedule_sol.blocks[b].deltaV_arrival = DeltaVMinimaopt;
           }
 
           list_of_schedules.push_back(schedule_sol);

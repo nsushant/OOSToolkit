@@ -24,6 +24,15 @@ Time Integrator used - Runge-Kutta 4
 
 // sim functions // 
 
+double deg_to_rads(double deg){
+
+    //converts measured angles from degrees to radians
+
+    return deg * M_PI / 180.0; 
+
+}
+
+
 arma::vec3 acceleration_due_to_central_body (const arma::vec3& r){
     
     double r_magnitude = arma::norm(r);
@@ -178,7 +187,7 @@ std::vector<satellite_object> build_walker_constellation(int num_planes, int tot
     sats.reserve(total_satnum);
     
 
-    double a = R_EARTH + altitude_m;
+    double a = altitude_m;
     // num satellites per plane
     int S = total_satnum / num_planes ;
     // the right accession (a total of 360 deg or 2pi rads) is divided up into n orbital planes. 
@@ -219,6 +228,49 @@ double calculate_edelbaum_deltaV(double v0,double v1, double plane_diff_angle){
 }
 
 
+
+std::vector<satellite_object> circular_orbits(int total_satnum, 
+                                             double altitude_m,
+                                             double inclination_rad,
+                                             double RAAN , double satmass){
+
+
+    std::vector<satellite_object> sats;
+    // predecided size of array
+    sats.reserve(total_satnum);
+                     
+    double a = altitude_m;
+
+    orbital_elements el;
+
+    
+    el.semi_major_axis = a;
+    el.eccentricity = 0.0;
+    el.inclination = inclination_rad;
+    el.RAAN = RAAN;
+    
+    double phase = 2 * M_PI / total_satnum ; 
+
+    el.augment_of_periapsis= 0.0;
+    
+    for (int p = 0; p < total_satnum; p++){
+
+        el.true_anomaly = phase * p;
+
+        std::string name = "sat_"+std::to_string(p) ; 
+    
+        sats.push_back(satellite_object::from_satellite_normal_to_ECI_coords(name, el, satmass));
+    
+    }
+                                                
+
+    return sats;
+
+}
+
+
+
+
 void showProgressBar(int progress, int total, int barWidth ) {
     float ratio = static_cast<float>(progress) / total;
     int pos = static_cast<int>(barWidth * ratio);
@@ -235,13 +287,19 @@ void showProgressBar(int progress, int total, int barWidth ) {
 
 
 
-void run_simulation( std::string save_to_file, std::string arrangement, double t_final,double dt, double altitude_km,double num_planes, double num_satellites, double relative_phase){
 
 
-    double altitude = R_EARTH + altitude_km*1000.0;
+
+
+void run_simulation(    std::string save_to_file, std::string arrangement, double t_final,double dt, 
+                        double altitude_m,double num_planes, double num_satellites, 
+                        double relative_phase, double inclination_in_radians, double satmass){
+
+
+    double altitude = R_EARTH + altitude_m;
     double period = 2*M_PI * sqrt(pow(altitude,3) / MU_EARTH);
 
-    std::cout << "orbital period: " << period;  
+    std::cout << "orbital period: " <<  period;  
 
     force_model force_options;
     force_options.includeJ2 = false;
@@ -251,29 +309,48 @@ void run_simulation( std::string save_to_file, std::string arrangement, double t
 
     if (arrangement == "walker_delta"){
 
-        std::vector<satellite_object> sats = build_walker_constellation(num_planes, num_satellites, relative_phase,
-                                                                        altitude_km * 1000.0,
+        sats = build_walker_constellation(num_planes, num_satellites, relative_phase,
+                                                                        altitude,
                                                                         56.0 * M_PI/180.0,
-                                                                        100.0);
-
+                                                                        satmass);
+        
     } 
 
     if (arrangement == "circular_orbit"){
-        
+
+
+        std::vector<satellite_object> sats = circular_orbits(num_satellites, 
+                                             altitude,inclination_in_radians,
+                                             0.0, satmass);
+
+                                            
+   
     }
 
     if (arrangement == "flower_constellation"){
+
+
         
+        
+        //std::vector<satellite_object> sats = build_coplanar_circular_orbit(); 
+
     }
 
     if (arrangement == "spiral_constellation"){
+                 
+        //std::vector<satellite_object> sats = build_coplanar_circular_orbit(); 
+
         
     }
 
     if (arrangement == "custom"){
         
+        //std::vector<satellite_object> sats = build_coplanar_circular_orbit(); 
+
     }
 
+
+    //init service satellite in circular orbit
 
     orbital_elements svc;
     svc.semi_major_axis = R_EARTH + 720000.0;
@@ -330,3 +407,11 @@ void run_simulation( std::string save_to_file, std::string arrangement, double t
 
 
 }
+
+
+
+
+
+
+
+
