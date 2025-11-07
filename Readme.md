@@ -54,5 +54,12 @@ Running this executable will trigger all functions within the Sim.cpp file and b
 
 Plotting scripts written in python are also included which will allow you to visualize the fuel cost gradients, satellite trajectories and more. 
 
-![trajectories image](./Figures/Figure_1.png)
 
+<div style="display: flex; justify-content: space-around;">
+  <img src="./Figures/Figure_1.png" alt="trajectories image" width="45%">
+  <img src="./Figures/DeltaV.jpeg" alt="DeltaV image" width="49%">
+</div>
+
+<p style="text-align: center; margin-top: 10px;">
+    <strong>Figure 1:</strong> Example images created using the plotting script.The left panel shows a visualization of satellite trajectories while the right panel shows Delta V contours showing the fuel consumption for all possible trajectories between two satellites for a range of arrival and departure times. 
+</p>
