@@ -26,17 +26,20 @@ int main(int argc, char *argv[]) {
   int num_planes = 5;
   int num_satellites = 20;
   int relative_phase = 1;
-  double inclination_in_deg = 56; 
+  double inclination_in_deg = 1; //56 
+  double inclinationDiff_in_deg = 2;    
 
-  run_simulation( "WalkerDelta.csv", "walker_delta", 60000,  10, 
+  run_simulation( "WalkerDelta.csv", "circular_orbits", 60000,  10, 
                   altitude_m, num_planes, num_satellites, relative_phase,
-                  deg_to_rads(inclination_in_deg), 1.0);
+                  deg_to_rads(inclination_in_deg), 1.0,deg_to_rads(inclinationDiff_in_deg));
   
 
   std::cout << "------------------Running exhaustive search---------------------"<<std::endl; 
 
 
-  run_exhaustive_search("service_1", "sat_0", 0.0, 30000.0, "WalkerDelta.csv", "Trajectories.csv"); 
+  //run_exhaustive_search("service_1", "sat_0", 0.0, 30000.0, "WalkerDelta.csv", "Trajectories.csv","edelbaum"); 
+
+  run_exhaustive_search("service_1", "sat_0", 0.0, 30000.0, "WalkerDelta.csv", "","edelbaum"); 
 
   
   std::cout << "------------------Running Local Search---------------------"<<std::endl; 

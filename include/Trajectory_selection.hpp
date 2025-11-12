@@ -35,5 +35,5 @@ void find_optimal_trajectory_no_iter(std::string service_satname, std::string cl
 
 
 
-void run_exhaustive_search(std::string sat_from, std::string sat_to, double t_from, double t_to, std::string simfilename, std::string outputfilename); 
+void run_exhaustive_search(std::string sat_from, std::string sat_to, double t_from, double t_to, std::string simfilename, std::string outputfilename="",std::string method="lambert"); 
 

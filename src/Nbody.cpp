@@ -33,6 +33,164 @@ double deg_to_rads(double deg){
 }
 
 
+
+double get_inclination(arma::vec r, arma::vec v){
+
+    double r_norm = arma::norm(r); 
+    double v_norm = arma::norm(v); 
+
+    // angular momentum 
+    arma::vec h = arma::cross(r,v);  
+    double h_norm = arma::norm(h); 
+
+    // inclination 
+    double i = std::acos(h(2)/h_norm); 
+    
+    return i; 
+}
+
+
+
+
+
+orbital_elements orb_elems_from_rv(arma::vec r, arma::vec v){
+
+    
+    // a, e, i, RAAN, true anomaly and augment_of_periapsis
+    orbital_elements orb_elems;
+
+    double r_norm = arma::norm(r); 
+    double v_norm = arma::norm(v); 
+
+    // angular momentum 
+    arma::vec h = arma::cross(r,v);  
+    double h_norm = arma::norm(h); 
+
+    // inclination 
+    double i = std::acos(h(2)/h_norm); 
+
+    // RAAN 
+    arma::vec k = {0,0,1};
+
+    arma::vec n = arma::cross(k,h);
+
+    double n_norm = arma::norm(n); 
+    
+    
+    double RAAN; 
+
+
+    if (n(1) >= 0 ){
+
+        RAAN =  std::acos(n(0)/n_norm); 
+
+    }
+    
+    else{
+
+        RAAN = 2 * M_PI - std::acos(n(0)/n_norm); 
+
+    }
+
+
+    // eccentricity 
+    
+
+    arma::vec e = ((v_norm*v_norm - MU_EARTH/r_norm) * r - arma::dot(r,v)*v) / MU_EARTH;
+
+
+    double e_norm = arma::norm(e); 
+    
+
+    // augment_of_periapsis
+
+    double p_arg; 
+    
+    if (e(2) >= 0){
+
+        double p_arg = std::acos(arma::dot(n,e)/ (n_norm*e_norm)); 
+    
+
+    }
+    
+
+
+    else{
+
+        double p_arg = 2*M_PI - std::acos(arma::dot(n,e)/ (n_norm*e_norm)); 
+
+    }
+    
+    
+
+    // True anomaly
+    
+    double nu; 
+
+    if (arma::dot(r,v) >= 0){
+
+      double nu = std::acos(arma::dot(e,r) / (e_norm*r_norm)); 
+
+    }
+    
+    else{
+
+      double nu = 2*M_PI - std::acos(arma::dot(e,r) / (e_norm*r_norm)); 
+    
+    }
+
+
+
+
+    // semi major axis 
+
+    double energy =  (0.5 * v_norm*v_norm) - MU_EARTH/r_norm; 
+    double a; 
+
+    
+    // when the energy approaches 0 we have a parabolic orbit 
+    if (std::abs(energy) < 1e-10){
+        
+        //for parabolic orbits energy = 0 so 'a' tends to infinity 
+
+        a = std::numeric_limits<double>::infinity();
+
+    }
+
+    else{
+
+        // for elliptical orbits e<0 and for hyperbolic orbits e>0
+        // so a can be finite 
+        
+        a = -MU_EARTH/ (2.0 * energy); 
+        
+
+    }
+
+
+    // we have now calculated all orbital elements
+    // now assign these to the orbital_elements object
+    
+
+    orb_elems.inclination = i;
+    orb_elems.RAAN = RAAN;
+    orb_elems.augment_of_periapsis = p_arg;
+    orb_elems.true_anomaly = nu;
+    orb_elems.semi_major_axis = a;
+    orb_elems.eccentricity = e_norm;    
+
+        
+    return orb_elems; 
+
+}
+
+
+
+
+
+
+
+
 arma::vec3 acceleration_due_to_central_body (const arma::vec3& r){
     
     double r_magnitude = arma::norm(r);
@@ -219,13 +377,6 @@ std::vector<satellite_object> build_walker_constellation(int num_planes, int tot
 }
 
 
-double calculate_edelbaum_deltaV(double v0,double v1, double plane_diff_angle){
-
-    double deltaV = pow(v0,2) + pow(v1,2) - 2 * v1 * v0 * (M_PI/2 * plane_diff_angle);
-
-    return sqrt(deltaV);
-
-}
 
 
 
@@ -293,10 +444,11 @@ void showProgressBar(int progress, int total, int barWidth ) {
 
 void run_simulation(    std::string save_to_file, std::string arrangement, double t_final,double dt, 
                         double altitude_m,double num_planes, double num_satellites, 
-                        double relative_phase, double inclination_in_radians, double satmass){
+                        double relative_phase, double inclination_in_radians, double satmass,double idiff){
 
 
     double altitude = R_EARTH + altitude_m;
+
     double period = 2*M_PI * sqrt(pow(altitude,3) / MU_EARTH);
 
     std::cout << "orbital period: " <<  period;  
@@ -316,12 +468,12 @@ void run_simulation(    std::string save_to_file, std::string arrangement, doubl
         
     } 
 
-    if (arrangement == "circular_orbit"){
+    if (arrangement == "circular_orbits"){
 
 
-        std::vector<satellite_object> sats = circular_orbits(num_satellites, 
-                                             altitude,inclination_in_radians,
-                                             0.0, satmass);
+        sats = circular_orbits(num_satellites, 
+                                altitude,inclination_in_radians,
+                                0.0, satmass);
 
                                             
    
@@ -355,11 +507,11 @@ void run_simulation(    std::string save_to_file, std::string arrangement, doubl
     orbital_elements svc;
     svc.semi_major_axis = R_EARTH + 720000.0;
     svc.eccentricity = 0.001;
-    svc.inclination = 48.0 * M_PI/180.0;
-    svc.RAAN = 30.0 * M_PI/180.0;
+    svc.inclination = inclination_in_radians + idiff; //48.0 * M_PI/180.0;
+    svc.RAAN = 0.0;  //30.0 * M_PI/180.0;
     svc.augment_of_periapsis = 10.0 * M_PI/180.0;
     svc.true_anomaly = 0.0;
-    sats.push_back(satellite_object::from_satellite_normal_to_ECI_coords("service_1", svc, 500.0));
+    sats.push_back(satellite_object::from_satellite_normal_to_ECI_coords("service_1", svc, 1.0));
 
     //std::cout << "# time(s) index name x y z vx vy vz\n";
 

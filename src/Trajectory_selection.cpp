@@ -11,7 +11,7 @@
 #include "data_access_lib.hpp"
 #include "Nbody.hpp"
 #include "Trajectory_selection.hpp"
-
+#include "LowThrustAnalytical.hpp"
 
 /*
 Author : S. Nigudkar (2025)
@@ -25,6 +25,9 @@ t_prev, the name of the client satellite (departure destination) and that of the
 
 
 
+
+
+// This is basically exhaustive search for a given pair of satellites 
 void find_optimal_trajectory(std::string service_satname,std::string client_satname, double t_prev, double t_request ,arma::vec &v1sol, arma::vec &v2sol, arma::vec &r1sol, arma::vec &r2sol, double &tof_optimal, std::vector<arma::vec>&trajs
 ,DataFrame simfile, std::string method, bool write_to_file, double &DeltaVMinima){
 
@@ -135,9 +138,9 @@ void find_optimal_trajectory(std::string service_satname,std::string client_satn
 
             // calculate the lambert transfers that are possible
 
-            if (method == "lambert") {
+            if (method == "lambert"){ 
 
-            std::vector<arma::vec> sols = lambert_solver(r_service, r_client_loop, possible_tofs(t_cl), MU_EARTH, 0, 4);
+            std::vector<arma::vec> sols = lambert_solver(r_service, r_client_loop, possible_tofs(t_cl), MU_EARTH, 0, 10);
             
             // for all possible lambert transfers compute the delta V
                 for (int sol=0 ; sol < sols.size(); sol++){
@@ -157,7 +160,7 @@ void find_optimal_trajectory(std::string service_satname,std::string client_satn
 
 
 
-                    double deltaTotal = arma::norm(deltaV1) + arma::norm(deltaV2);
+                    double deltaTotal = std::abs(arma::norm(deltaV1)) + std::abs(arma::norm(deltaV2));
 
 
                     if (write_to_file == true){
@@ -175,9 +178,12 @@ void find_optimal_trajectory(std::string service_satname,std::string client_satn
 
                     // to parallelise with omp you will have to remove this conditional.  
                     // instead write solutions to a file or shared array and have a sparate loop identify the optimal solution 
-                    if ((sols_tot > 1) && (abs(deltaTotal) < DeltaVMinima) ){
+                    
+                    // if more than one solution has already been calculated then compare to see if 
+                    // new solution in better 
+                    if ((sols_tot > 1) && (deltaTotal < DeltaVMinima) ){
 
-                        DeltaVMinima = abs(deltaTotal);
+                        DeltaVMinima = deltaTotal;
 
                         v1sol = v1sol_loop;
                         v2sol = v2sol_loop; 
@@ -191,7 +197,7 @@ void find_optimal_trajectory(std::string service_satname,std::string client_satn
 
                     else if (sols_tot == 1)
                     {
-                        DeltaVMinima = abs(deltaTotal);
+                        DeltaVMinima = deltaTotal;
                     }
                 
 
@@ -203,13 +209,35 @@ void find_optimal_trajectory(std::string service_satname,std::string client_satn
 
             else if (method == "edelbaum")
             {
+                sols_tot+=1;
+                
                 double v_depot_edelbaum = arma::norm(v_service_loop);
                 double v_client_edelbaum = arma::norm(v_client_loop);
-                double plane_diff_angle; 
-                
-                double deltaV = calculate_edelbaum_deltaV(v_depot_edelbaum,v_client_edelbaum, plane_diff_angle);
 
-        
+                double i_from = get_inclination(r_service,v_service_loop);
+                double i_to = get_inclination(r_client_loop,v_client_loop);
+                
+                double plane_diff_angle = std::abs(i_from-i_to); 
+                 
+                double deltaVedelbaum = calculate_edelbaum_deltaV(v_depot_edelbaum,v_client_edelbaum, plane_diff_angle);
+                
+                if ((sols_tot > 1) && (deltaVedelbaum < DeltaVMinima)){
+
+                    DeltaVMinima = deltaVedelbaum; 
+
+
+                }
+
+                else if (sols_tot == 1){
+
+                    
+                     DeltaVMinima = deltaVedelbaum; 
+
+
+                }
+
+
+
             }
             
             
@@ -366,7 +394,7 @@ void find_optimal_trajectory_no_iter(std::string service_satname, std::string cl
         arma::vec deltaV1 = v1sol_loop - v_service;
         arma::vec deltaV2 = v2sol_loop - v_client;
 
-        double deltaTotal = arma::norm(deltaV1) + arma::norm(deltaV2);
+        double deltaTotal = std::abs(arma::norm(deltaV1) + arma::norm(deltaV2));
 
 
         if (deltaVsols > 0){
@@ -396,7 +424,7 @@ void find_optimal_trajectory_no_iter(std::string service_satname, std::string cl
 }
 
 
-  void run_exhaustive_search(std::string sat_from, std::string sat_to, double t_from, double t_to, std::string simfilename, std::string outputfilename){
+  void run_exhaustive_search(std::string sat_from, std::string sat_to, double t_from, double t_to, std::string simfilename, std::string outputfilename,std::string method){
 
     DataFrame simfile("../data/"+simfilename);
   
@@ -407,17 +435,24 @@ void find_optimal_trajectory_no_iter(std::string service_satname, std::string cl
     double DeltaVMinima;
 
     find_optimal_trajectory(sat_from,sat_to, t_from, t_to, v1sol, v2sol,
-                          r1sol, r2sol, tof_optimal, trajs, simfile, "lambert",
+                          r1sol, r2sol, tof_optimal, trajs, simfile, method,
                           true, DeltaVMinima);
 
-  std::ofstream traj_file("../data/"+outputfilename);
-  // deltaTotal,possible_tofs(t_cl),
-  // available_t_service(t_ser),available_t_client(t_cl)
-  traj_file
-      << "deltaV,v1,v2,tof,t_depot,t_client,x_ser,y_ser,z_ser,x_cl,y_cl,z_cl,"
-         "sol_num,vx_depot,vy_depot,vz_depot,vx_client,vy_client,vz_client\n";
 
-  for (int it = 0; it < trajs.size(); it++) {
+
+    std::cout<<"Exhaustive Search Minimum: "<<DeltaVMinima<<std::endl;
+    
+
+    if (outputfilename != ""){
+
+
+    std::ofstream traj_file("../data/"+outputfilename);
+    // deltaTotal,possible_tofs(t_cl),
+    // available_t_service(t_ser),available_t_client(t_cl)
+    traj_file<< "deltaV,v1,v2,tof,t_depot,t_client,x_ser,y_ser,z_ser,x_cl,y_cl,z_cl,"
+                "sol_num,vx_depot,vy_depot,vz_depot,vx_client,vy_client,vz_client\n";
+
+    for (int it = 0; it < trajs.size(); it++) {
 
     arma::vec row = trajs[it];
 
@@ -427,9 +462,10 @@ void find_optimal_trajectory_no_iter(std::string service_satname, std::string cl
               << "," << row(11) << "," << row(12) << "," << row(13) << ","
               << row(14) << "," << row(15) << "," << row(16) << "," << row(17)
               << "," << row(18) <<"\n";
-  }
+    }
 
-  traj_file.close();
+    traj_file.close();
+    }
 
 
   }

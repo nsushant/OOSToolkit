@@ -16,6 +16,11 @@
 },
 {
   "directory": "/home/nsushant/OOSToolkit/build",
+  "command": "/usr/bin/c++  -I/home/nsushant/OOSToolkit/include -std=gnu++17 -o CMakeFiles/Nbody.dir/src/LowThrustAnalytical.cpp.o -c /home/nsushant/OOSToolkit/src/LowThrustAnalytical.cpp",
+  "file": "/home/nsushant/OOSToolkit/src/LowThrustAnalytical.cpp"
+},
+{
+  "directory": "/home/nsushant/OOSToolkit/build",
   "command": "/usr/bin/c++  -I/home/nsushant/OOSToolkit/include -std=gnu++17 -o CMakeFiles/Nbody.dir/src/Nbody.cpp.o -c /home/nsushant/OOSToolkit/src/Nbody.cpp",
   "file": "/home/nsushant/OOSToolkit/src/Nbody.cpp"
 },

@@ -1,5 +1,5 @@
-CMakeFiles/Nbody.dir/src/Trajectory_selection.cpp.o: \
- /home/nsushant/OOSToolkit/src/Trajectory_selection.cpp \
+CMakeFiles/Nbody.dir/src/LowThrustAnalytical.cpp.o: \
+ /home/nsushant/OOSToolkit/src/LowThrustAnalytical.cpp \
  /usr/include/stdc-predef.h /usr/include/c++/11/iostream \
  /usr/include/x86_64-linux-gnu/c++/11/bits/c++config.h \
  /usr/include/x86_64-linux-gnu/c++/11/bits/os_defines.h \
@@ -833,8 +833,4 @@ CMakeFiles/Nbody.dir/src/Trajectory_selection.cpp.o: \
  /usr/include/armadillo_bits/newarp_UpperHessenbergEigen_meat.hpp \
  /usr/include/armadillo_bits/newarp_UpperHessenbergQR_meat.hpp \
  /usr/include/armadillo_bits/compiler_setup_post.hpp \
- /home/nsushant/OOSToolkit/include/LambertSolver.hpp \
- /home/nsushant/OOSToolkit/include/data_access_lib.hpp \
- /home/nsushant/OOSToolkit/include/Nbody.hpp \
- /home/nsushant/OOSToolkit/include/Trajectory_selection.hpp \
- /home/nsushant/OOSToolkit/include/LowThrustAnalytical.hpp
+ /home/nsushant/OOSToolkit/include/Nbody.hpp

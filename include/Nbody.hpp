@@ -58,7 +58,8 @@ struct satellite_object
     // function to convert satellite coordinates from the perifocal coordinate system to the ECI frame
     // static makes the function available, independent from the instance of a satellite_object
     static satellite_object from_satellite_normal_to_ECI_coords(const std::string& satname, const orbital_elements& orb_elems, double mass=1.0){
-
+        
+        
         //mass and name remain the same 
         satellite_object sat_ECI(satname,mass); 
         double a = orb_elems.semi_major_axis;
@@ -67,11 +68,10 @@ struct satellite_object
         double RAAN = orb_elems.RAAN;
         double w = orb_elems.augment_of_periapsis;
         double nu = orb_elems.true_anomaly;
-
-        // we can also calculate the semi-parameter p and the specific momentum h as well as the magnitude of the position vec
         // in the perifocal coordinate frame
-     
-        double p = a * (1 - e*e); 
+        
+        double p = a * (1 - e*e); // r_c radius at which forces are balanced
+
         double mag_r = p / (1 + e * cos(nu)); // trajectory equation
         double h = sqrt(MU_EARTH * p);
 
@@ -115,6 +115,13 @@ struct force_model {
 
 double deg_to_rads(double deg); 
 
+double get_inclination(arma::vec r, arma::vec v);
+
+orbital_elements orb_elems_from_rv(arma::vec r, arma::vec v);
+
+
+
+
 arma::vec3 acceleration_due_to_central_body (const arma::vec3& r);
 
 // acceleration taking j2 perturbations into account
@@ -139,12 +146,11 @@ std::vector<satellite_object> build_walker_constellation(   int num_planes,
                                                 
 
 
-double calculate_edelbaum_deltaV(double v0,double v1, double plane_diff_angle);
 
 
 void showProgressBar(int progress, int total, int barWidth = 50);
 
 void run_simulation(    std::string save_to_file, std::string arrangement, double t_final,double dt, 
                         double altitude_m,double num_planes, double num_satellites, 
-                        double relative_phase, double inclination_in_radians, double satmass=1.0);
+                        double relative_phase, double inclination_in_radians, double satmass=1.0,double idiff=0.0);
 
