@@ -377,10 +377,16 @@ void find_optimal_trajectory_no_iter(std::string service_satname, std::string cl
     arma::vec v_service = {vx_service_sat,vy_service_sat,vz_service_sat}; 
     arma::vec v_client = {vx_client_sat,vy_client_sat,vz_client_sat}; 
 
+    double altitude = norm(r_client); 
 
+    double period = 2*M_PI * sqrt(pow(altitude,3) / MU_EARTH);
 
+    // the number of possible revolutions is 
     double tof_largest = t_client_arrival - t_service_departure; 
-    std::vector<arma::vec> sols = lambert_solver(r_service, r_client, tof_largest, MU_EARTH, 0, 4);
+        
+    int revmax = std::floor(tof_largest/period); 
+    
+    std::vector<arma::vec> sols = lambert_solver(r_service, r_client, tof_largest, MU_EARTH, 0, revmax);
 
     double deltaVsols = -1*pow(10,9); 
 

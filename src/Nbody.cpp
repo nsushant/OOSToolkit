@@ -562,6 +562,203 @@ void run_simulation(    std::string save_to_file, std::string arrangement, doubl
 
 
 
+bool is_in_vec(const std::vector<double>& v, double x) {
+    return std::find(v.begin(), v.end(), x) != v.end();
+}
+
+
+
+
+struct constellation_struct{   
+                        int num_planes; 
+                        int num_satellites; 
+                        int relative_phase;
+                        double altitude;
+                        double inclination;
+                        double satmass;
+    
+};
+
+
+
+class Simulation{
+
+
+    public: 
+        
+        force_model force_options;         
+        int numsats;
+        std::vector<satellite_object> sats;
+        std::vector<double> taken_inclinations;
+        std::vector<double> taken_a; 
+        // constructor
+        Simulation(){
+            
+            force_options.includeJ2 = false;
+            force_options.includeMutual = false;
+            numsats = 0; 
+            
+        };
+
+
+        Simulation(force_model force_opts){
+
+            force_options=force_opts;
+            numsats=0; 
+
+        };
+
+
+
+        void add_sat(orbital_elements el, std::string name, double satmass){
+
+
+                sats.push_back(satellite_object::from_satellite_normal_to_ECI_coords(name, el, satmass));
+
+
+        }
+
+        
+        void add_sats(orbital_elements el,int totalsats,double phase_lim,double satmass){
+            
+
+            if(is_in_vec(taken_a,el.semi_major_axis) && is_in_vec(taken_inclinations, el.inclination)){
+            
+                std::cout<<"The desired orbit is already populated, please choose different (a,i)"<<std::endl; 
+                
+            }
+
+            else{
+
+            
+                for (int i= 0 ; i < totalsats ; i++){
+
+                    numsats++;
+
+                    orbital_elements el_in = el; 
+    
+                    double phase = 2 * M_PI/phase_lim *  i / totalsats ; 
+
+                    el_in.true_anomaly = phase; 
+
+                    sats.push_back(satellite_object::from_satellite_normal_to_ECI_coords("sat_"+std::to_string(numsats), el_in, satmass));
+                                                                                
+                }
+            
+
+                taken_inclinations.push_back(el.inclination);
+                taken_a.push_back(el.semi_major_axis);
+
+            }
+
+        }; 
+        
+
+    
+        void add_constellation(std::string constellation_type,constellation_struct constellation){
+
+                
+            if (numsats > 0){
+
+                std::cout << "unable to populate constellation because orbits already exist"<<std::endl;
+                std::cout << "please start with an empty simulation environment and initialize constellation before other orbits"<<std::endl;
+
+            } 
+            
+            else{
+            
+
+            if (constellation_type == "walker_delta"){
+
+                std::vector<satellite_object> constellation_array = build_walker_constellation( constellation.num_planes, 
+                                                                                                constellation.num_satellites, 
+                                                                                                constellation.relative_phase,
+                                                                                                constellation.altitude,
+                                                                                                constellation.inclination,
+                                                                                                constellation.satmass);
+
+
+
+                sats = constellation_array; 
+
+                taken_inclinations.push_back(constellation.inclination); 
+                taken_a.push_back(constellation.altitude); 
+
+                numsats+=constellation.num_satellites; 
+                
+
+            } 
+            
+            }
+
+        
+        }; 
+
+        
+        // destructor 
+        ~Simulation(); 
+
+        // now we define functions to actually run the simulation 
+        
+        void run_simulation(double t_end,double dt, std::string file_to_write){
+
+            std::ofstream csv("../data/"+file_to_write);
+            csv << "time_s,index,name,x,y,z,vx,vy,vz\n";
+
+            double t = 0.0; 
+            std::cout<<"Running Simulation"; 
+            int step=0;
+
+            while(t < (t_end - 1e-9)){
+                // only write outputs to csv files every 10 timesteps
+                // I am just thinning the datafile here so we can store it easily 
+
+                if(step % 10 == 0){
+
+                    for(size_t i=0;i<sats.size();i++){
+
+            
+                        csv << t << "," << i << "," << sats[i].satname << ","
+                            << sats[i].r(0) << "," << sats[i].r(1) << "," << sats[i].r(2) << ","
+                            << sats[i].v(0) << "," << sats[i].v(1) << "," << sats[i].v(2) << "\n";
+            
+                    }
+
+                }
+
+                runge_kutta_step(sats, dt, force_options);
+        
+                t += dt;
+                step++;
+                //showProgressBar(t, t_final);
+        
+
+            }
+    
+            std::cout << std::endl << "Done!" << std::endl;
+
+            csv.close();
+            std::cout << "CSV saved to data/WalkerDelta.csv\n";
+
+
+        };
+
+
+    private: 
+
+        bool check_for_collisions(orbital_elements el){
+            
+
+            return false;  
+
+        }
+        
+
+
+
+};
+
+
 
 
 

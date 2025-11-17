@@ -1,6 +1,7 @@
 CMakeFiles/Nbody.dir/src/LowThrustAnalytical.cpp.o: \
  /home/nsushant/OOSToolkit/src/LowThrustAnalytical.cpp \
- /usr/include/stdc-predef.h /usr/include/c++/11/iostream \
+ /usr/include/stdc-predef.h /home/nsushant/OOSToolkit/include/Nbody.hpp \
+ /usr/include/c++/11/iostream \
  /usr/include/x86_64-linux-gnu/c++/11/bits/c++config.h \
  /usr/include/x86_64-linux-gnu/c++/11/bits/os_defines.h \
  /usr/include/features.h /usr/include/features-time64.h \
@@ -832,5 +833,4 @@ CMakeFiles/Nbody.dir/src/LowThrustAnalytical.cpp.o: \
  /usr/include/armadillo_bits/newarp_TridiagEigen_meat.hpp \
  /usr/include/armadillo_bits/newarp_UpperHessenbergEigen_meat.hpp \
  /usr/include/armadillo_bits/newarp_UpperHessenbergQR_meat.hpp \
- /usr/include/armadillo_bits/compiler_setup_post.hpp \
- /home/nsushant/OOSToolkit/include/Nbody.hpp
+ /usr/include/armadillo_bits/compiler_setup_post.hpp
