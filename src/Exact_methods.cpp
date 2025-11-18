@@ -162,11 +162,6 @@ void finding_individual_minimas_dynamic_programming(schedule_struct &init_schedu
 
                 arma::rowvec current_prob = {a,d,b}; 
 
-                double tol = 1e-9; 
-
-
-                //arma::uvec idxs_sat = arma::find(arma::all( arma::abs(table_of_sols.cols(0,2).each_row() - current_prob) < tol, 1 )); 
-
                 arma::mat matches_with_current_prob = table_of_sols.cols(0,2).each_row() - current_prob; 
                 arma::vec sum_mat_cols = arma::sum(matches_with_current_prob,1);
                 arma::uvec idxs_sat = arma::find(sum_mat_cols == 0); 
