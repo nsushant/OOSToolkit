@@ -102,16 +102,15 @@ void finding_individual_minimas_dynamic_programming(schedule_struct &init_schedu
     // tabulate this table with solutions as they are calculated 
     
     // table[arrival_time][departure_time]
-    // lets discretize into 100 second intervals 
+    // lets discretize into dt second intervals 
     // 
     // if we start with a schedule that lasts 60000 seconds we will get 6000 timesteps
-    // out of these 6000, creating pairs will reduce the number of solutions to 3000. 
+    // out of these 6000 if dt = 100. 
     // 
     // There will be further reductions due to the time occupied by servicing tasks themselves 
     // (times at which we can neither depart nor arrive)
     // 
     // Additionally we can check if a solution has a time of flight = T1 and omit these solutions 
-
 
     // The table will have a maximum of 4 cols (arrival time, departure time, name, delta V)
     // and a maximum of arrival_time_of_last_block/100 rows.
@@ -164,8 +163,15 @@ void finding_individual_minimas_dynamic_programming(schedule_struct &init_schedu
                 arma::rowvec current_prob = {a,d,b}; 
 
                 double tol = 1e-9; 
-                arma::uvec idxs_sat = arma::find(arma::all( arma::abs(table_of_sols.cols(0,2).each_row() - current_prob) < tol, 1 ));
-            
+
+
+                //arma::uvec idxs_sat = arma::find(arma::all( arma::abs(table_of_sols.cols(0,2).each_row() - current_prob) < tol, 1 )); 
+
+                arma::mat matches_with_current_prob = table_of_sols.cols(0,2).each_row() - current_prob; 
+                arma::vec sum_mat_cols = arma::sum(matches_with_current_prob,1);
+                arma::uvec idxs_sat = arma::find(sum_mat_cols == 0); 
+                
+                
 
                 double DeltaVsol = 0; 
 
@@ -188,14 +194,11 @@ void finding_individual_minimas_dynamic_programming(schedule_struct &init_schedu
 
                 else{
                     
-                    std::cout << "trying to read precomputed sol" << "\n";
-
-                    std::cout << "size sol mat:" << idxs_sat.n_elem << "\n";
+                    //std::cout << "trying to read precomputed sol" << "\n";
 
                     arma::mat readsol = table_of_sols.rows(idxs_sat);
 
                     DeltaVsol = readsol(0,3); 
-
 
                 }
 
