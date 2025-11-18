@@ -6,6 +6,8 @@
 #include "Local_search.hpp"
 #include "data_access_lib.hpp"
 #include "LambertSolver.hpp"
+#include "Nbody.hpp"
+
 /*
  The outputs of local search algorithms need to be compared with those of exact methods, so as to 
  quantify the difference between the solution obtained and the optimal solution (to calculate the optimality gap).  
@@ -94,7 +96,7 @@ bool is_feasible_sol(task_block block1, task_block block2, DataFrame simfile, do
 
 
 
-schedule_struct finding_individual_minimas_dynamic_programming(schedule_struct init_schedule, DataFrame Simfile, double dt){
+void finding_individual_minimas_dynamic_programming(schedule_struct &init_schedule, DataFrame Simfile, double dt){
 
     
     // tabulate this table with solutions as they are calculated 
@@ -112,9 +114,16 @@ schedule_struct finding_individual_minimas_dynamic_programming(schedule_struct i
 
 
     // The table will have a maximum of 4 cols (arrival time, departure time, name, delta V)
-    // and a maximum of arrival_time_of_last_block/100 rows. 
+    // and a maximum of arrival_time_of_last_block/100 rows.
 
-    int numrows = std::ceil(init_schedule.blocks[-1].arrival_time/dt); 
+
+    int numtimes = std::ceil(init_schedule.blocks[(int)init_schedule.blocks.size() - 1].arrival_time/dt); 
+    int numrows = numtimes * numtimes; 
+
+    //view_schedule(init_schedule); 
+
+    //std::cout << "dt : " << dt << std::endl;
+    std::cout << "numrows : " << numrows << std::endl;
 
     arma::mat table_of_sols(numrows,4,arma::fill::zeros);
 
@@ -129,7 +138,7 @@ schedule_struct finding_individual_minimas_dynamic_programming(schedule_struct i
 
         double d_constraint = block1.departure_time; 
         double a_constraint = block2.arrival_time; 
-       
+        
             
         task_block optblock;
         optblock = block2; 
@@ -142,14 +151,12 @@ schedule_struct finding_individual_minimas_dynamic_programming(schedule_struct i
         std::vector<double> aopt; 
         std::vector<double> deltaopt; 
         
-    
 
         for(double a = a_constraint; a > d_constraint; a-=dt){
-
             
-            for(double d = d_constraint; d <= a; d+=dt){   
+            for(double d = d_constraint; d <= a; d+=dt){
             
-
+            //std::cout << "d,a : "<< d <<" , "<<a << std::endl;  
 
             if(is_feasible_sol(block1, block2, Simfile, d, a)){ 
 
@@ -164,6 +171,8 @@ schedule_struct finding_individual_minimas_dynamic_programming(schedule_struct i
 
                 if ((int)idxs_sat.n_elem == 0){
             
+                    //std::cout << "computing new soln" << "\n"; 
+
                     find_optimal_trajectory_no_iter(block1.satname, block2.satname, d, a, Simfile, DeltaVsol); 
             
                     //check if solution exists in lookup table
@@ -173,12 +182,16 @@ schedule_struct finding_individual_minimas_dynamic_programming(schedule_struct i
                     table_of_sols(sols,3) = DeltaVsol; 
                     table_of_sols(sols,2) = b; 
 
-
+                    //std::cout <<"wrote solution"<<std::endl;
                     sols+=1;
                 }
 
                 else{
                     
+                    std::cout << "trying to read precomputed sol" << "\n";
+
+                    std::cout << "size sol mat:" << idxs_sat.n_elem << "\n";
+
                     arma::mat readsol = table_of_sols.rows(idxs_sat);
 
                     DeltaVsol = readsol(0,3); 
@@ -218,18 +231,16 @@ schedule_struct finding_individual_minimas_dynamic_programming(schedule_struct i
 
         else{
 
-            optimal_schedule.blocks[-1].departure_time = dopt[idxmin]; 
-
+            optimal_schedule.blocks[ optimal_schedule.blocks.size() - 1 ].departure_time = dopt[idxmin]; 
+            
         }
-
         
         optimal_schedule.blocks.push_back(optblock);
-
 
     }
                 
         
-    return optimal_schedule;
+    init_schedule = optimal_schedule;
 
 
 } 

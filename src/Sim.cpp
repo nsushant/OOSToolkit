@@ -16,6 +16,7 @@
 #include "Nbody.hpp"
 #include "Trajectory_selection.hpp"
 #include "data_access_lib.hpp"
+#include "Exact_methods.hpp"
 
 int main(int argc, char *argv[]) {
 
@@ -29,15 +30,17 @@ int main(int argc, char *argv[]) {
   double inclination_in_deg = 56; 
   double inclinationDiff_in_deg = 2;    
 
-  run_simulation( "WalkerDelta.csv", "walker_delta", 60000,  10, 
-                  altitude_m, num_planes, num_satellites, relative_phase,
-                  deg_to_rads(inclination_in_deg), 1.0,deg_to_rads(inclinationDiff_in_deg));
+  //run_simulation( "WalkerDelta.csv", "walker_delta", 60000,  10, 
+    //              altitude_m, num_planes, num_satellites, relative_phase,
+      //            deg_to_rads(inclination_in_deg), 1.0,deg_to_rads(inclinationDiff_in_deg));
   
 
-  std::cout << "------------------Running exhaustive search---------------------"<<std::endl; 
+  //std::cout << "------------------Running exact method (DP)---------------------"<<std::endl; 
 
 
-  run_exhaustive_search("service_1", "sat_0", 0.0, 30000.0, "WalkerDelta.csv", "Trajectories.csv","lambert"); 
+  
+
+  //run_exhaustive_search("service_1", "sat_0", 0.0, 30000.0, "WalkerDelta.csv", "Trajectories.csv","lambert"); 
 
   //run_exhaustive_search("service_1", "sat_0", 0.0, 30000.0, "WalkerDelta.csv", "","edelbaum"); 
 
@@ -64,22 +67,36 @@ int main(int argc, char *argv[]) {
   double move_size = 600; 
 
   //formultaion 1 
-  std::vector<std::string> moves_to_consider = {"sub arrival"};
+  //std::vector<std::string> moves_to_consider = {"sub arrival"};
 
 
   // formulation 2 
-  //std::vector<std::string> moves_for_local_search = {"sub arrival", "add departure"};
+  std::vector<std::string> moves_to_consider = {"sub arrival", "add departure"};
 
 
   // formulation 3  
   //std::vector<std::string> moves_for_local_search = {"swap slots"};
 
+  run_local_search(  simfile, move_size,moves_to_consider,
+                    sat_names_in_schedule, t_depart, t_arrive,
+                    deltaV_of_schedule_init, service_time  );
 
 
-  run_local_searh(  simfile, move_size,moves_to_consider,
-                    sat_names_in_schedule, t_depart, t_arrive, 
-                    deltaV_of_schedule_init, service_time); 
 
+
+  std::cout << " Running DP" << std::endl; 
+
+
+  double initdeltavDP; 
+  //schedule_struct schedule_init =create_schedule(initdeltavDP,t_arrive,t_depart,sat_names_in_schedule,simfile) ;
+  
+  schedule_struct schedule_init =create_schedule_lambert_only(initdeltavDP,t_arrive,t_depart, sat_names_in_schedule,simfile, service_time);
+
+  std::cout<<(int)schedule_init.blocks.size() << std::endl;
+  
+  finding_individual_minimas_dynamic_programming(schedule_init, simfile, 500);
+
+  view_schedule(schedule_init);
 
   /*
 

@@ -82,7 +82,7 @@ schedule_struct local_search_opt_schedule(double init_deltaV, schedule_struct in
 
 
 
-void run_local_searh( DataFrame simfile, double move_size,  
+void run_local_search( DataFrame simfile, double move_size,  
                       std::vector<std::string> moves_to_consider,
                       std::vector<std::string> sat_names_in_schedule ,
                       std::vector<double> t_depart, std::vector<double> t_arrive, 

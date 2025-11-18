@@ -321,7 +321,7 @@ schedule_struct create_schedule(double &deltaV_of_schedule_init,
 schedule_struct create_schedule_lambert_only(
     double &deltaV_of_schedule_init, std::vector<double> arrival_times,
     std::vector<double> departure_times, std::vector<std::string> satnames,
-    DataFrame simfile, double service_time, std::vector<double> deadlines) {
+    DataFrame simfile, double service_time, std::vector<double> deadlines){
 
   // initial block for the service depot
 
@@ -382,69 +382,48 @@ schedule_struct create_schedule_lambert_only(
 
 // use local search to find the optimal_schedule
 
-schedule_struct local_search_opt_schedule_lambert_only(
-    double &init_deltaV, schedule_struct init_schedule, double dt_move,
-    DataFrame simfile, double service_time,
-    std::vector<std::string> move_methods) {
+schedule_struct local_search_opt_schedule_lambert_only(double &init_deltaV, schedule_struct init_schedule, double dt_move,
+                                                        DataFrame simfile, double service_time,std::vector<std::string> move_methods){
 
   double deltaVminima_so_far = init_deltaV;
 
   schedule_struct optimal_schedule;
 
+
   while (true) {
 
     // neighbourhood solutions
     std::vector<schedule_struct> list_of_schedules;
-    arma::vec deltaVs_of_neighbourhood(
-        (init_schedule.blocks.size() * move_methods.size()));
+
+    arma::vec deltaVs_of_neighbourhood(( init_schedule.blocks.size() * move_methods.size() ));
 
     double neighbourhood_minima;
 
     int solnum_neighbourhood = 0;
 
-    for (int m = 0; m < move_methods.size(); m++) {
 
-      for (int b = 0; b < init_schedule.blocks.size(); b++) {
+    //loop over all moves 
+    for (int m = 0; m < move_methods.size(); m++){
+      for (int b = 0; b < init_schedule.blocks.size(); b++){
 
         schedule_struct schedule_sol = init_schedule;
-
-        if (move_methods[m] == "swap_slots") {
-
-          move_wrapper(schedule_sol.blocks, b, dt_move, move_methods[m],
+        
+        // apply move to schedule blocks
+        move_wrapper(schedule_sol.blocks, b, dt_move, move_methods[m],
                        simfile);
-
-        }
-
-        else {
-
-          move_wrapper(schedule_sol.blocks, b, dt_move, move_methods[m],
-                       simfile);
-        }
-
-        if (b == 0) {
-
-          // move_dt(schedule_sol.blocks[b],dt_move);
-          // move_dt2(schedule_sol.blocks, b, dt_move);
-
-          schedule_sol.blocks[b].deltaV_arrival = 0.0;
-
-          list_of_schedules.push_back(schedule_sol);
-
-        }
-
-        else {
-
-          double DeltaVMinimaopt;
-
-          if (move_methods[m] != "swap_slots") {
+        
+        
+        double DeltaVMinimaopt;
 
 
-            if((move_methods[m] == "add departure") || (move_methods[m]== "sub departure")){
+        if((move_methods[m] == "add departure") || (move_methods[m]== "sub departure")){
               
-              if (b < (schedule_sol.blocks.size()-2)){
-              
+            bool b_not_last_elem = b < (schedule_sol.blocks.size() - 1);
 
-              find_optimal_trajectory_no_iter(
+            if (b_not_last_elem){
+              
+                //finding lowest energy lambert transfer for given tof
+                find_optimal_trajectory_no_iter(
                   schedule_sol.blocks[b].satname,
                   schedule_sol.blocks[b + 1].satname,
                   schedule_sol.blocks[b].departure_time,
@@ -455,33 +434,32 @@ schedule_struct local_search_opt_schedule_lambert_only(
 
               
               }
+                
 
-            }
+        }
 
 
-            if((move_methods[m] == "add arrival") || (move_methods[m]== "sub arrival")){
+        if((move_methods[m] == "add arrival") || (move_methods[m]== "sub arrival")){
 
-          
+                
+            if(b > 0){
+
                 find_optimal_trajectory_no_iter(
                   schedule_sol.blocks[b - 1].satname,
                   schedule_sol.blocks[b].satname,
                   schedule_sol.blocks[b - 1].departure_time,
                   schedule_sol.blocks[b].arrival_time, simfile, DeltaVMinimaopt);
               
-              
                 schedule_sol.blocks[b].deltaV_arrival = DeltaVMinimaopt;
 
-
-            }
-            // find_optimal_trajectory_no_iter(schedule_sol.blocks[b-1].satname,
-            // schedule_sol.blocks[b].satname,
-            // schedule_sol.blocks[b-1].arrival_time + service_time,
-            // schedule_sol.blocks[b].arrival_time, simfile, DeltaVMinimaopt);
+                }
 
           }
+          
 
-          list_of_schedules.push_back(schedule_sol);
-        }
+        list_of_schedules.push_back(schedule_sol);
+        
+        //closes for loop over the whole schedule
 
         double totalDeltaV_of_sol = 0.0;
 
@@ -499,10 +477,11 @@ schedule_struct local_search_opt_schedule_lambert_only(
 
         solnum_neighbourhood += 1;
 
-        // view_schedule(schedule_sol);
-      }
-    }
+      } // closes iteration over the full schedule 
+    
+    } // closes iteration over all the moves 
 
+    
     neighbourhood_minima = deltaVs_of_neighbourhood.min();
     // std::cout<< "neighbourhood_minima : "<< neighbourhood_minima <<
     // std::endl; std::cout<< "neighbourhood_maxima : "<<
@@ -528,11 +507,15 @@ schedule_struct local_search_opt_schedule_lambert_only(
 
       // view_schedule(list_of_schedules[index_minima]);
     }
-  }
 
+
+  }//closes while
+
+  
   optimal_schedule = init_schedule;
-
   return optimal_schedule;
+
+
 }
 
 schedule_struct local_search_opt_schedule(double init_deltaV,
@@ -621,7 +604,7 @@ schedule_struct local_search_opt_schedule(double init_deltaV,
 
 
 
-void run_local_searh( DataFrame simfile, double move_size,  
+void run_local_search( DataFrame simfile, double move_size,  
                       std::vector<std::string> moves_to_consider,
                       std::vector<std::string> sat_names_in_schedule ,
                       std::vector<double> t_depart, std::vector<double> t_arrive, 
@@ -654,7 +637,7 @@ void run_local_searh( DataFrame simfile, double move_size,
 
     std::cout<<"\n";
 
-    std::cout<<"Total Delta V: "<< deltaV_of_schedule;
+    std::cout<<"Total Delta V: "<< deltaV_of_schedule<<"\n";
 
 
     
