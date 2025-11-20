@@ -64,7 +64,49 @@ int main(int argc, char *argv[]) {
   std::vector<std::string> sat_names_in_schedule = {depot_name,"sat_0",depot_name,"sat_3",depot_name,"sat_10",depot_name};     
 
   double service_time = 1000;
-  double move_size = 600; 
+  double move_size = 500; 
+
+
+
+  arma::vec x_sat = simfile.getNumeric("x");
+  arma::vec y_sat = simfile.getNumeric("y");
+  arma::vec z_sat = simfile.getNumeric("z");
+  arma::vec vx_sat = simfile.getNumeric("vx");
+  arma::vec vy_sat = simfile.getNumeric("vy");
+  arma::vec vz_sat = simfile.getNumeric("vz");
+
+
+  std::vector<std::string> sats_in_demand= {"sat_0" , "sat_3" , "sat_10" , "service_1"}; 
+
+  for(std::string sname : sats_in_demand){
+
+    arma::uvec idxs_sats = find_idxs_of_match(satnames,sname);
+    
+    arma::vec x = x_sat.elem(idxs_sats);
+    arma::vec y = y_sat.elem(idxs_sats);
+    arma::vec z = z_sat.elem(idxs_sats);
+
+
+    arma::vec vx = vx_sat.elem(idxs_sats);
+    arma::vec vy = vy_sat.elem(idxs_sats);
+    arma::vec vz = vz_sat.elem(idxs_sats);
+    
+    arma::vec r  = { x(0), y(0),z(0)};
+    arma::vec v  = {vx(0) , vy(0) , vz(0)};
+
+    
+    orbital_elements eleminit = orb_elems_from_rv(r,v);
+
+
+    std::cout<<"sat: "<<sname<<std::endl;
+    std::cout<<"inclination: "<<eleminit.inclination<<std::endl; 
+    std::cout<<"RAAN: "<<eleminit.RAAN<<std::endl;
+    std::cout<<"SemiMajor Axis: "<< eleminit.semi_major_axis<<std::endl;
+    std::cout<<"__________________________________________"<<std::endl;
+
+  }
+    
+
 
   //formultaion 1 
   //std::vector<std::string> moves_to_consider = {"sub arrival"};
@@ -84,8 +126,7 @@ int main(int argc, char *argv[]) {
 
 
 
-  std::cout << " Running DP" << std::endl; 
-
+  std::cout << "------------------Running Dynamic Program---------------------"<<std::endl; 
 
   double initdeltavDP; 
   //schedule_struct schedule_init =create_schedule(initdeltavDP,t_arrive,t_depart,sat_names_in_schedule,simfile) ;
@@ -94,9 +135,22 @@ int main(int argc, char *argv[]) {
 
   std::cout<<(int)schedule_init.blocks.size() << std::endl;
   
-  finding_individual_minimas_dynamic_programming(schedule_init, simfile, 500);
+  finding_individual_minimas_dynamic_programming(schedule_init, simfile, 100);
 
   view_schedule(schedule_init);
+
+
+  double deltaVoptimal_exact = 0.0; 
+
+  for(int b = 0 ; b < schedule_init.blocks.size() ; b++){
+
+    deltaVoptimal_exact += schedule_init.blocks[b].deltaV_arrival; 
+
+
+  }   
+
+  std::cout<<"Exact method DeltaV: " << deltaVoptimal_exact << "\n";
+  std::cout<<"Gap : "<< std::abs(deltaV_of_schedule_init - deltaVoptimal_exact)/deltaVoptimal_exact * 100 <<" %" << "\n"; 
 
   /*
 

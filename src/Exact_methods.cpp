@@ -122,7 +122,7 @@ void finding_individual_minimas_dynamic_programming(schedule_struct &init_schedu
     //view_schedule(init_schedule); 
 
     //std::cout << "dt : " << dt << std::endl;
-    std::cout << "numrows : " << numrows << std::endl;
+    //std::cout << "numrows : " << numrows << std::endl;
 
     arma::mat table_of_sols(numrows,4,arma::fill::zeros);
 

@@ -621,6 +621,8 @@ void run_local_search( DataFrame simfile, double move_size,
 
     std::cout<< "\n"; 
 
+    std::cout << "Initial Schedule"<< std::endl; 
+
     view_schedule(init_schedule);
     
     std::cout<< "\n"; 
@@ -632,6 +634,8 @@ void run_local_search( DataFrame simfile, double move_size,
                                                                               simfile,service_time, moves_to_consider);
     
     std::cout<<"\n";
+
+    std::cout << "Result of Local Search"<<std::endl; 
 
     view_schedule(findopt_schedule);
 
