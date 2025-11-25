@@ -9,6 +9,7 @@
 #include <iostream>
 #include <string>
 #include <vector>
+#include <random>
 /*
 Author : S. Nigudkar (2025)
 
@@ -228,12 +229,15 @@ void move_wrapper(std::vector<task_block> &blocks, int b_index, double dt,
   if (method == "sub arrival") {
     move_sub_arrival(blocks, b_index, dt);
   }
+
   if (method == "sub departure") {
     move_sub_departure(blocks, b_index, dt);
   }
+  
   if (method == "move_dt2") {
     move_dt2(blocks, b_index, dt);
   }
+  
   if (method == "swap_slots") {
     swap_slots(blocks, b_index, dt, simfile);
   }
@@ -268,6 +272,113 @@ void view_schedule(schedule_struct schedule_to_print) {
 
   std::cout << std::string(w1 + w2 + w3 + w4 + 7, '-') << "\n";
 }
+
+
+void init_dep_arrival_times_random(std::vector<double> &departure_times, std::vector<double> &arrival_times,double period, double service_time, int num_sats){
+        
+        // if we have n sats to visit, we will have 2n +1 task blocks
+
+        int num_blocks = 2*num_sats + 1;
+
+        departure_times.push_back(0.0);
+        arrival_times.push_back(0.0);
+        
+        //seed random number generator
+        std::random_device rdom;  
+        std::mt19937 gen(rdom());
+        std::uniform_int_distribution<> distrib(1,3);
+
+        for(int i = 1 ; i < num_blocks ; i++){
+         
+          int orbmul = distrib(gen);
+          double orbt = period*orbmul;
+          
+          arrival_times.push_back(departure_times[i-1] + orbt); 
+          departure_times.push_back(arrival_times[i] + service_time);
+          
+        }
+
+}
+
+
+void init_dep_arrival_times_strict_timespan(std::vector<double> &departure_times, std::vector<double> &arrival_times, double final_time, double service_time, int num_sats){
+      
+      int num_blocks = 2*num_sats + 1;
+
+      departure_times.push_back(0.0); 
+      arrival_times.push_back(0.0); 
+      
+      int dt = ((int)final_time/num_blocks) - ((int)final_time/num_blocks % 100); 
+
+      double t_tot = 0.0;
+
+      for (int i = 1; i < num_blocks; i++){
+      
+        t_tot+=dt; 
+        arrival_times.push_back(t_tot);
+        departure_times.push_back(t_tot + service_time); 
+        
+
+        if (arrival_times[i] > departure_times[i] + dt){
+        
+          std::cout<<"May contain overlapping blocks"<<std::endl; 
+        
+        }
+
+      }
+
+}
+
+
+std::vector<std::string> init_satname_array(std::string service_satname, std::vector<std::string> client_satnames, bool allow_revisits, double num_sats){
+
+    int num_blocks = 2*num_sats + 1; 
+
+    std::vector<std::string> satnames; 
+
+    satnames.push_back(service_satname); 
+
+    int d = 0;
+
+    for (int i = 1; i < num_blocks; i++){
+
+        if (i % 2 == 0){
+          
+          satnames.push_back(service_satname); 
+          
+        }
+          
+
+        else{
+
+          if (allow_revisits == true){
+            
+            if(d==client_satnames.size()){
+
+              d-=d; 
+
+            }
+            
+            satnames.push_back(client_satnames[d]);
+            d+=1;
+
+          }
+
+          else{
+
+            satnames.push_back(client_satnames[d]);
+            d+=1;
+            
+          }
+
+        }
+
+
+    }
+    
+    return satnames; 
+} 
+
 
 // initialize a schedule
 schedule_struct create_schedule(double &deltaV_of_schedule_init,
@@ -341,7 +452,7 @@ schedule_struct create_schedule_lambert_only(
 
   deltaV_of_schedule_init = 0.0;
 
-  for (int i = 1; i < satnames.size(); i++) {
+  for(int i = 1; i < satnames.size(); i++){
 
     task_block block;
 
@@ -382,7 +493,7 @@ schedule_struct create_schedule_lambert_only(
 
 // use local search to find the optimal_schedule
 
-schedule_struct local_search_opt_schedule_lambert_only(double &init_deltaV, schedule_struct init_schedule, double dt_move,
+schedule_struct local_search_opt_schedule_lambert_only(double &init_deltaV, schedule_struct init_schedule, std::vector<double> dt_move,
                                                         DataFrame simfile, double service_time,std::vector<std::string> move_methods){
 
   double deltaVminima_so_far = init_deltaV;
@@ -395,7 +506,7 @@ schedule_struct local_search_opt_schedule_lambert_only(double &init_deltaV, sche
     // neighbourhood solutions
     std::vector<schedule_struct> list_of_schedules;
 
-    arma::vec deltaVs_of_neighbourhood(( init_schedule.blocks.size() * move_methods.size() ));
+    arma::vec deltaVs_of_neighbourhood(( init_schedule.blocks.size() * move_methods.size() * dt_move.size() ));
 
     double neighbourhood_minima;
 
@@ -404,12 +515,13 @@ schedule_struct local_search_opt_schedule_lambert_only(double &init_deltaV, sche
 
     //loop over all moves 
     for (int m = 0; m < move_methods.size(); m++){
-      for (int b = 0; b < init_schedule.blocks.size(); b++){
+      for (int d = 0; d < dt_move.size(); d++){
+        for (int b = 0; b < init_schedule.blocks.size(); b++){
 
         schedule_struct schedule_sol = init_schedule;
         
         // apply move to schedule blocks
-        move_wrapper(schedule_sol.blocks, b, dt_move, move_methods[m],
+        move_wrapper(schedule_sol.blocks, b, dt_move[d], move_methods[m],
                        simfile);
         
         
@@ -477,8 +589,8 @@ schedule_struct local_search_opt_schedule_lambert_only(double &init_deltaV, sche
 
         solnum_neighbourhood += 1;
 
-      } // closes iteration over the full schedule 
-    
+        } // closes iteration over the full schedule 
+      }//closes iteration over all move sizes
     } // closes iteration over all the moves 
 
     
@@ -533,6 +645,7 @@ schedule_struct local_search_opt_schedule(double init_deltaV,
     arma::vec deltaVs_of_neighbourhood(init_schedule.blocks.size());
     double neighbourhood_minima;
 
+
     for (int b = 0; b < init_schedule.blocks.size(); b++) {
 
       schedule_struct schedule_sol = init_schedule;
@@ -563,9 +676,10 @@ schedule_struct local_search_opt_schedule(double init_deltaV,
       double totalDeltaV_of_sol = 0.0;
 
       for (int elem = 0; elem < schedule_sol.blocks.size(); elem++) {
+        
+          totalDeltaV_of_sol +=std::abs(schedule_sol.blocks[elem].deltaV_arrival);
 
-        totalDeltaV_of_sol +=
-            std::abs(schedule_sol.blocks[elem].deltaV_arrival);
+        
       }
 
       deltaVs_of_neighbourhood(b) = (totalDeltaV_of_sol);
@@ -591,8 +705,9 @@ schedule_struct local_search_opt_schedule(double init_deltaV,
       int index_minima = static_cast<int>(index_minima_uword);
 
       deltaVminima_so_far = std::abs(neighbourhood_minima);
-      init_schedule = list_of_schedules[index_minima];
+ 
 
+      init_schedule = list_of_schedules[index_minima];
       // view_schedule(list_of_schedules[index_minima]);
     }
   }
@@ -604,7 +719,7 @@ schedule_struct local_search_opt_schedule(double init_deltaV,
 
 
 
-void run_local_search( DataFrame simfile, double move_size,  
+void run_local_search( DataFrame simfile, std::vector<double> move_size,  
                       std::vector<std::string> moves_to_consider,
                       std::vector<std::string> sat_names_in_schedule ,
                       std::vector<double> t_depart, std::vector<double> t_arrive, 

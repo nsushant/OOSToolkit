@@ -51,22 +51,24 @@ int main(int argc, char *argv[]) {
   DataFrame simfile("../data/WalkerDelta.csv");
 
   std::vector<std::string> satnames = simfile["name"];
+  
+  // inputs to generate initial schedule
+  int num_sat_visits = 3; 
+  double t_final = 50000; 
+  double service_time = 1000;
+  std::string depot_name = "service_1"; 
+  std::vector<std::string> client_satnames  = {"sat_0", "sat_3", "sat_10"};
+  
+  // initializing init schedule 
+  std::vector<double> t_depart; 
+  std::vector<double> t_arrive; 
 
-  std::vector<double> t_depart = {0, 8000, 16000, 24000,34000,42000,0.0}; 
-  std::vector<double> t_arrive = {0, 6000,14000,22000,32000,40000,50000};
+  init_dep_arrival_times_strict_timespan(t_depart, t_arrive, t_final, service_time, num_sat_visits);
+  std::vector<std::string> sat_names_in_schedule = init_satname_array("service_1", client_satnames, false, num_sat_visits);
 
   double deltaV_of_schedule_init;
 
-
-  std::string depot_name = "service_1"; 
-  
-
-  std::vector<std::string> sat_names_in_schedule = {depot_name,"sat_0",depot_name,"sat_3",depot_name,"sat_10",depot_name};     
-
-  double service_time = 1000;
-  double move_size = 500; 
-
-
+  std::vector<double> move_size = {100,200,500,1000,1500,2000}; 
 
   arma::vec x_sat = simfile.getNumeric("x");
   arma::vec y_sat = simfile.getNumeric("y");
