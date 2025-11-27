@@ -17,6 +17,7 @@
 #include "Trajectory_selection.hpp"
 #include "data_access_lib.hpp"
 #include "Exact_methods.hpp"
+#include "Simulated_Annealing.hpp"
 
 int main(int argc, char *argv[]) {
 
@@ -68,7 +69,7 @@ int main(int argc, char *argv[]) {
 
   double deltaV_of_schedule_init;
 
-  std::vector<double> move_size = {100,200,500,1000,1500,2000}; 
+  std::vector<double> move_size = {100,200,500,1000,1500,3000}; 
 
   arma::vec x_sat = simfile.getNumeric("x");
   arma::vec y_sat = simfile.getNumeric("y");
@@ -109,24 +110,31 @@ int main(int argc, char *argv[]) {
   }
     
 
-
+  double cooling_param = 0.99; 
+  int maxiter = 40;
+  double T_init = 50; 
   //formultaion 1 
   //std::vector<std::string> moves_to_consider = {"sub arrival"};
 
 
   // formulation 2 
-  std::vector<std::string> moves_to_consider = {"sub arrival", "add departure"};
+  std::vector<std::string> moves_to_consider = { "add departure","sub arrival", "add arrival", "sub departure"};
 
 
   // formulation 3  
   //std::vector<std::string> moves_for_local_search = {"swap slots"};
 
-  run_local_search(  simfile, move_size,moves_to_consider,
+  run_local_search( simfile, move_size,moves_to_consider,
                     sat_names_in_schedule, t_depart, t_arrive,
-                    deltaV_of_schedule_init, service_time  );
+                    deltaV_of_schedule_init, service_time );
 
-
-
+  /*
+  run_simulated_annealing( simfile, move_size,  
+                            moves_to_consider,
+                            sat_names_in_schedule ,
+                            t_depart, t_arrive, 
+                           deltaV_of_schedule_init, service_time, cooling_param, maxiter, T_init);
+  */
 
   std::cout << "------------------Running Dynamic Program---------------------"<<std::endl; 
 

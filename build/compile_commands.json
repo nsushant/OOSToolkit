@@ -31,6 +31,11 @@
 },
 {
   "directory": "/home/nsushant/OOSToolkit/build",
+  "command": "/usr/bin/c++  -I/home/nsushant/OOSToolkit/include -std=gnu++17 -o CMakeFiles/Nbody.dir/src/Simulated_Annealing.cpp.o -c /home/nsushant/OOSToolkit/src/Simulated_Annealing.cpp",
+  "file": "/home/nsushant/OOSToolkit/src/Simulated_Annealing.cpp"
+},
+{
+  "directory": "/home/nsushant/OOSToolkit/build",
   "command": "/usr/bin/c++  -I/home/nsushant/OOSToolkit/include -std=gnu++17 -o CMakeFiles/Nbody.dir/src/Trajectory_selection.cpp.o -c /home/nsushant/OOSToolkit/src/Trajectory_selection.cpp",
   "file": "/home/nsushant/OOSToolkit/src/Trajectory_selection.cpp"
 },

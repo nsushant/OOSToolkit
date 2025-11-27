@@ -160,7 +160,7 @@ void finding_individual_minimas_dynamic_programming(schedule_struct &init_schedu
             if(is_feasible_sol(block1, block2, Simfile, d, a)){ 
 
 
-                arma::rowvec current_prob = {a,d,b}; 
+                arma::rowvec current_prob = {a,d,(double)b}; 
 
                 arma::mat matches_with_current_prob = table_of_sols.cols(0,2).each_row() - current_prob; 
                 arma::vec sum_mat_cols = arma::sum(matches_with_current_prob,1);
@@ -202,9 +202,9 @@ void finding_individual_minimas_dynamic_programming(schedule_struct &init_schedu
                 dopt.push_back(d);
                 aopt.push_back(a); 
 
-                }
-            
             }
+            
+          }
 
         }
 
