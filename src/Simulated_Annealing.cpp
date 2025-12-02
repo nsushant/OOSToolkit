@@ -58,7 +58,25 @@ schedule_struct simulated_annealing_lambert(double &init_deltaV, schedule_struct
     // neighbourhood solutions
     std::vector<schedule_struct> list_of_schedules;
 
-    arma::vec deltaVs_of_neighbourhood(( init_schedule.blocks.size() * move_methods.size() * dt_move.size() ));
+    // compute neighbourhood size safely to avoid integer overflow or
+    // attempts to allocate an excessively large vector which throws
+    // std::bad_array_new_length
+    size_t neighbourhood_size = init_schedule.blocks.size();
+    neighbourhood_size *= move_methods.size();
+    neighbourhood_size *= dt_move.size();
+
+    if (neighbourhood_size == 0) {
+      // nothing to explore
+      break;
+    }
+
+    const size_t MAX_NEIGHBOURHOOD = 10000000; // sanity cap
+    if (neighbourhood_size > MAX_NEIGHBOURHOOD) {
+      std::cerr << "Neighbourhood size too large: " << neighbourhood_size << ". Aborting search to avoid OOM." << std::endl;
+      break;
+    }
+
+    arma::vec deltaVs_of_neighbourhood(static_cast<arma::uword>(neighbourhood_size));
 
     double neighbourhood_minima;
 
@@ -89,7 +107,7 @@ schedule_struct simulated_annealing_lambert(double &init_deltaV, schedule_struct
               bool condition_sub = ((move_methods[m] == "sub departure") && (departure_constraints[b] < schedule_sol.blocks[b].departure_time));
               
 
-              if (condition_add || condition_add){
+              if (condition_add || condition_sub){
               
                 //finding lowest energy lambert transfer for given tof
                 find_optimal_trajectory_no_iter(

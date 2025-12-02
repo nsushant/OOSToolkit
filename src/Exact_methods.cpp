@@ -21,9 +21,7 @@ date: 11/2025
 // The aim is to use dynamic programming to find an optimal schedule. 
 
 
-bool is_feasible_sol(task_block block1, task_block block2, DataFrame simfile, double t1, double t2){
-
-    
+bool is_feasible_sol(task_block block1, task_block block2, DataFrame simfile, double t1, double t2){    
 
     std::string name1 = block1.satname; 
     std::string name2 = block2.satname; 
@@ -116,16 +114,33 @@ void finding_individual_minimas_dynamic_programming(schedule_struct &init_schedu
     // and a maximum of arrival_time_of_last_block/100 rows.
 
 
-    int numtimes = std::ceil(init_schedule.blocks[(int)init_schedule.blocks.size() - 1].arrival_time/dt); 
-    int numrows = numtimes * numtimes; 
+    //int numtimes = std::ceil(init_schedule.blocks[(int)init_schedule.blocks.size() - 1].arrival_time/dt); 
+    //int numrows = numtimes * numtimes; 
 
     //view_schedule(init_schedule); 
 
     //std::cout << "dt : " << dt << std::endl;
     //std::cout << "numrows : " << numrows << std::endl;
 
-    arma::mat table_of_sols(numrows,4,arma::fill::zeros);
-
+    //arma::mat table_of_sols(numrows,4,arma::fill::zeros);
+    
+    // first lets assume the following constraints apply 
+    // d_i < a_{i+1}
+    // a_i < d_i 
+    // d_i > a_i + s_i 
+    //
+    //
+    // If we now consider fixed arrival times b_i to get additional constraints 
+    // 
+    // a_i < b_i 
+    // d_i > b_i + s_i  
+    //
+    // for each solution we would need the block number, deprature time, arrival time, delta V 
+    //  
+    // suppose we get 
+    //
+    std::map<std::vector<double>,double> table_of_sols; 
+	
     schedule_struct optimal_schedule;
     
     double sols = 0; 
@@ -153,35 +168,29 @@ void finding_individual_minimas_dynamic_programming(schedule_struct &init_schedu
 
         for(double a = a_constraint; a > d_constraint; a-=dt){
             
-            for(double d = d_constraint; d <= a; d+=dt){
+            for(double d = d_constraint; d < a; d+=dt){
             
             //std::cout << "d,a : "<< d <<" , "<<a << std::endl;  
 
             if(is_feasible_sol(block1, block2, Simfile, d, a)){ 
 
 
-                arma::rowvec current_prob = {a,d,(double)b}; 
-
-                arma::mat matches_with_current_prob = table_of_sols.cols(0,2).each_row() - current_prob; 
-                arma::vec sum_mat_cols = arma::sum(matches_with_current_prob,1);
-                arma::uvec idxs_sat = arma::find(sum_mat_cols == 0); 
+		        std::vector<double> current_prob = {a,d,(double)b}; 
                 
+                                   
+                bool match_found = (table_of_sols.find(current_prob) != table_of_sols.end());  
                 
-
                 double DeltaVsol = 0; 
 
-                if ((int)idxs_sat.n_elem == 0){
+                if (match_found == false){
             
                     //std::cout << "computing new soln" << "\n"; 
 
                     find_optimal_trajectory_no_iter(block1.satname, block2.satname, d, a, Simfile, DeltaVsol); 
             
                     //check if solution exists in lookup table
-
-                    table_of_sols(sols,0) = a; 
-                    table_of_sols(sols,1) = d; 
-                    table_of_sols(sols,3) = DeltaVsol; 
-                    table_of_sols(sols,2) = b; 
+                        
+                    table_of_sols[current_prob] = DeltaVsol; 
 
                     //std::cout <<"wrote solution"<<std::endl;
                     sols+=1;
@@ -191,9 +200,7 @@ void finding_individual_minimas_dynamic_programming(schedule_struct &init_schedu
                     
                     //std::cout << "trying to read precomputed sol" << "\n";
 
-                    arma::mat readsol = table_of_sols.rows(idxs_sat);
-
-                    DeltaVsol = readsol(0,3); 
+                    DeltaVsol = table_of_sols[current_prob]; 
 
                 }
 
@@ -209,9 +216,8 @@ void finding_individual_minimas_dynamic_programming(schedule_struct &init_schedu
         }
 
 
-
         // find time pair that gives minimum delta V 
-        std::vector<double>::iterator it = std::min_element(deltaopt.begin(), deltaopt.end());
+        auto it = std::min_element(deltaopt.begin(), deltaopt.end());
         // Get index
         std::size_t idxmin = std::distance(deltaopt.begin(), it);
 
@@ -228,7 +234,7 @@ void finding_individual_minimas_dynamic_programming(schedule_struct &init_schedu
 
 
         else{
-
+            
             optimal_schedule.blocks[ optimal_schedule.blocks.size() - 1 ].departure_time = dopt[idxmin]; 
             
         }

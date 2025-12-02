@@ -20,12 +20,12 @@ Functions to initialize schedules and find the optimal schedule using local sear
 //structs 
 struct task_block{
 
-    double arrival_time; 
-    double departure_time;
-    std::string satname; 
-    double deltaV_arrival; 
-    double service_duration;
-    double demand_deadline;
+    double arrival_time= 0.0; 
+    double departure_time = 0.0;
+    std::string satname = "unassigned"; 
+    double deltaV_arrival =0.0; 
+    double service_duration =0.0;
+    double demand_deadline =0.0;
 
 };
 
@@ -88,7 +88,7 @@ schedule_struct local_search_opt_schedule(double init_deltaV, schedule_struct in
 
 
 
-void run_local_search( DataFrame simfile, std::vector<double> move_size,  
+schedule_struct run_local_search( DataFrame simfile, std::vector<double> move_size,  
                       std::vector<std::string> moves_to_consider,
                       std::vector<std::string> sat_names_in_schedule ,
                       std::vector<double> t_depart, std::vector<double> t_arrive, 

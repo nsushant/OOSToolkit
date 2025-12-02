@@ -518,7 +518,25 @@ schedule_struct local_search_opt_schedule_lambert_only(double &init_deltaV, sche
     // neighbourhood solutions
     std::vector<schedule_struct> list_of_schedules;
 
-    arma::vec deltaVs_of_neighbourhood(( init_schedule.blocks.size() * move_methods.size() * dt_move.size() ));
+    // compute neighbourhood size safely to avoid integer overflow or
+    // attempts to allocate an excessively large vector which throws
+    // std::bad_array_new_length
+    size_t neighbourhood_size = init_schedule.blocks.size();
+    neighbourhood_size *= move_methods.size();
+    neighbourhood_size *= dt_move.size();
+
+    if (neighbourhood_size == 0) {
+      // nothing to explore
+      break;
+    }
+
+    const size_t MAX_NEIGHBOURHOOD = 10000000; // sanity cap
+    if (neighbourhood_size > MAX_NEIGHBOURHOOD) {
+      std::cerr << "Neighbourhood size too large: " << neighbourhood_size << ". Aborting search to avoid OOM." << std::endl;
+      break;
+    }
+
+    arma::vec deltaVs_of_neighbourhood(static_cast<arma::uword>(neighbourhood_size));
 
     double neighbourhood_minima;
 
@@ -552,7 +570,7 @@ schedule_struct local_search_opt_schedule_lambert_only(double &init_deltaV, sche
               bool condition_sub = ((move_methods[m] == "sub departure") && (departure_constraints[b] < schedule_sol.blocks[b].departure_time));
               
 
-              if (condition_add || condition_add){
+              if (condition_add || condition_sub){
               
                 //finding lowest energy lambert transfer for given tof
                 find_optimal_trajectory_no_iter(
@@ -673,7 +691,7 @@ schedule_struct local_search_opt_schedule_lambert_only(double &init_deltaV, sche
       deltaVminima_so_far = std::abs(neighbourhood_minima);
       init_schedule = list_of_schedules[index_minima];
 
-      view_schedule(list_of_schedules[index_minima]);
+      //view_schedule(list_of_schedules[index_minima]);
     }
 
 
@@ -776,7 +794,7 @@ schedule_struct local_search_opt_schedule(double init_deltaV,
 
 
 
-void run_local_search( DataFrame simfile, std::vector<double> move_size,  
+schedule_struct run_local_search( DataFrame simfile, std::vector<double> move_size,  
                       std::vector<std::string> moves_to_consider,
                       std::vector<std::string> sat_names_in_schedule ,
                       std::vector<double> t_depart, std::vector<double> t_arrive, 
@@ -816,7 +834,7 @@ void run_local_search( DataFrame simfile, std::vector<double> move_size,
     std::cout<<"Total Delta V: "<< deltaV_of_schedule<<"\n";
 
 
-    
+   return findopt_schedule; 
 
 
 }
