@@ -2,6 +2,8 @@
 #include <armadillo>
 #include <cmath>
 #include <iostream>
+#include <map>
+#include <vector>
 
 #include "Local_search.hpp"
 #include "data_access_lib.hpp"
@@ -94,6 +96,29 @@ bool is_feasible_sol(task_block block1, task_block block2, DataFrame simfile, do
 
 
 
+/*
+double calc_task_cost(int n,DataFrame& Simfile,double&DeltaVsol){
+
+    
+    task_block block1 = init_schedule.blocks[n-1]; 
+    task_block block2 = init_schedule.blocks[n];
+
+    find_optimal_trajectory_no_iter(block1.satname, block2.satname, block1.departure_time, block2.arrival_time, Simfile, DeltaVsol); 
+    
+
+    calc_task_cost(n-1, Simfile, DeltaVsol); 
+
+}
+*/
+
+
+
+
+
+
+
+
+
 void finding_individual_minimas_dynamic_programming(schedule_struct &init_schedule, DataFrame Simfile, double dt){
 
     
@@ -138,6 +163,9 @@ void finding_individual_minimas_dynamic_programming(schedule_struct &init_schedu
     // for each solution we would need the block number, deprature time, arrival time, delta V 
     //  
     // suppose we get 
+    //
+    //
+    //Table of sols [a, d, b] = delta V
     //
     std::map<std::vector<double>,double> table_of_sols; 
 	
@@ -248,4 +276,200 @@ void finding_individual_minimas_dynamic_programming(schedule_struct &init_schedu
 
 
 } 
+
+
+
+
+
+double calculate_deltav_upto_thisblock(int n, schedule_struct&sched_in, DataFrame simfile, std::map<std::vector<double>, double>&lookup){
+
+
+    if(n==0){
+
+        return 0.0; 
+    }
+
+
+    std::vector<double> key = {(double)n,sched_in.blocks[n-1].departure_time,sched_in.blocks[n].arrival_time};
+
+    
+    double deltaV_current;
+
+    if (lookup.find(key) != lookup.end()){
+
+                
+        deltaV_current+=lookup[key];
+
+        sched_in.blocks[n].deltaV_arrival = deltaV_current; 
+
+    }
+
+    else{
+            
+        // if you want to include considered wait-times uncomment the line below
+
+        //deltaV_current += compact_optimal_calc( sched_in.blocks[n-1],sched_in.blocks[n],
+            //                                      sched_in[n-1].departure_time, sched_in[n].arrival_time,simfile);
+         
+        
+        //std::cout <<"n,d,a"<< n <<","<<sched_in.blocks[n-1].departure_time<<","<< sched_in.blocks[n].arrival_time << "\n";  
+
+        find_optimal_trajectory_no_iter(sched_in.blocks[n-1].satname, sched_in.blocks[n].satname, 
+                                        sched_in.blocks[n-1].departure_time, sched_in.blocks[n].arrival_time, 
+                                        simfile, deltaV_current);
+
+        sched_in.blocks[n].deltaV_arrival = deltaV_current; 
+
+
+            
+        lookup[key] = deltaV_current; 
+
+    }    
+
+
+    return deltaV_current += calculate_deltav_upto_thisblock(n-1, sched_in,simfile,lookup);       
+    
+    
+}
+
+
+
+int dynamic_program_fixed_tasksize_Tfixed(schedule_struct& sched_init, double dt,int b_reached,int b_lim,double Tmax,DataFrame simfile){
+
+
+
+
+    if (b_reached == b_lim){
+            
+        std::cout << " dynamic program terminated" << std::endl;  
+        return 0.0; 
+    
+    }
+
+    // 
+    // constraints 
+    // a_i < d_{i-1} 
+    // a_i = d_i - s_i 
+    // a_i > 0 
+    // s_i > 0
+    // d_i     
+
+    std::map<std::vector<double>, double>lookup;
+   
+
+        
+    double deltav_so_far = 0.0; 
+
+    for(int itb = 1 ; itb <= b_lim; itb++)
+    {
+
+        deltav_so_far += sched_init.blocks[itb].deltaV_arrival; 
+
+    }
+
+
+    for(int b = b_reached ; b>=1 ; b--)
+    {
+
+        std::cout << "b_reached : " << b << std::endl; 
+        double dep_init = (b > 1) ? sched_init.blocks[b-2].departure_time : 0.0; 
+    
+        double arr_init = sched_init.blocks[b].arrival_time;  
+
+        schedule_struct sched_sub = sched_init; 
+        
+        if (b > 1){
+
+        while( sched_sub.blocks[b-1].arrival_time > dep_init )
+        {
+            
+            sched_sub.blocks[b-1].departure_time-=dt ;
+            
+            if( (b-1) > 0 )
+            {
+                sched_sub.blocks[b-1].arrival_time-=dt;   
+               
+                if(sched_sub.blocks[b-2].departure_time >= sched_sub.blocks[b-1].arrival_time)
+                {
+                    break;
+
+                }
+
+            } 
+
+
+
+            double deltav_upto_block = calculate_deltav_upto_thisblock(b_reached, sched_sub, simfile, lookup);
+                
+                       
+            if (deltav_upto_block < deltav_so_far)
+            {           
+                sched_init = sched_sub;
+                deltav_so_far = deltav_upto_block;   
+
+            }
+                
+                
+
+        }
+
+        }
+        
+        
+        
+
+        schedule_struct sched_add = sched_init; 
+        std::cout <<"arr_int"<<arr_init<<std::endl;
+        while( sched_add.blocks[b-1].departure_time < arr_init)
+        {
+
+            sched_add.blocks[b-1].departure_time +=dt;
+            sched_add.blocks[b-1].arrival_time   +=dt;
+        
+
+            if(sched_add.blocks[b].arrival_time <= sched_add.blocks[b-1].departure_time){
+                break; 
+            }
+
+            
+            double deltav_upto_block = calculate_deltav_upto_thisblock(b_reached, sched_add, simfile, lookup);
+
+            
+            if (deltav_upto_block < deltav_so_far){
+
+                //sched_init.blocks[b-1].departure_time = sched_add.blocks[b-1].departure_time; 
+                //sched_init.blocks[b-1].arrival_time = sched_add.blocks[b-1].arrival_time; 
+                sched_init = sched_add; 
+                deltav_so_far = deltav_upto_block; 
+            }
+            
+        
+
+        }
+
+    }
+     
+    
+    b_reached +=1; 
+
+    return dynamic_program_fixed_tasksize_Tfixed(sched_init,dt,b_reached,b_lim,Tmax,simfile);
+  
+
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 

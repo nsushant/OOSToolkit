@@ -110,7 +110,7 @@ schedule_struct Tabu_search_opt_schedule_lambert_only(double &init_deltaV, sched
             if (b_not_last_elem)
             {
 
-              bool condition_add = ((move_methods[m] == "add departure") && (schedule_sol.blocks[b].departure_time < schedule_sol.blocks[b + 1].arrival_time));
+              bool condition_add = ((move_methods[m] == "add departure") && (schedule_sol.blocks[b].departure_time <= schedule_sol.blocks[b + 1].arrival_time));
               bool condition_sub = ((move_methods[m] == "sub departure") && (departure_constraints[b] < schedule_sol.blocks[b].departure_time));
 
               if (condition_add || condition_sub)
@@ -136,7 +136,7 @@ schedule_struct Tabu_search_opt_schedule_lambert_only(double &init_deltaV, sched
             if (b > 0)
             {
 
-              bool condition_add = ((move_methods[m] == "add arrival") && (schedule_sol.blocks[b].arrival_time < arrival_constraints[b]));
+              bool condition_add = ((move_methods[m] == "add arrival") && (schedule_sol.blocks[b].arrival_time <= arrival_constraints[b]));
               bool condition_sub = ((move_methods[m] == "sub arrival") && (schedule_sol.blocks[b - 1].departure_time < schedule_sol.blocks[b].arrival_time));
 
               if (condition_add || condition_sub)

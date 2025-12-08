@@ -65,7 +65,7 @@ void move_add_arrival(std::vector<task_block> &blocks, int b_index, double dt) {
     if (b_index > 0 ) {
         
     // ensure that the addition in arrival time does not make arrival occur after the departure time
-    if ((blocks[b_index].arrival_time + blocks[b_index].service_duration + dt) < blocks[b_index].departure_time) {
+    if ((blocks[b_index].arrival_time + blocks[b_index].service_duration + dt) <= blocks[b_index].departure_time) {
 
         blocks[b_index].arrival_time += dt;
 
@@ -74,7 +74,7 @@ void move_add_arrival(std::vector<task_block> &blocks, int b_index, double dt) {
 
     // since the departure time of the last block is 0 
 
-    else if(b_index == (blocks.size()-1)){blocks[b_index].arrival_time += dt;}
+    else if(b_index == (blocks.size()-1)){blocks[b_index].arrival_time += 0;}
 
     }
 
@@ -84,7 +84,7 @@ void move_add_departure(std::vector<task_block> &blocks, int b_index,
                         double dt) {
 
   //for all but the second to last block                          
-  if ( b_index != (blocks.size() - 1) ) {
+  if ( b_index < (blocks.size() - 1) ) {
 
     // make sure the shuttle departs before the next expected arrival
     if (blocks[b_index].departure_time + dt <
@@ -103,9 +103,9 @@ void move_sub_departure(std::vector<task_block> &blocks, int b_index,
                         double dt) {
   
   // for all but the last block
-  if (b_index != (blocks.size() - 1)) {
+  if (b_index < (blocks.size() - 1)) {
 
-    if (blocks[b_index].departure_time - dt > (blocks[b_index].arrival_time + blocks[b_index].service_duration)) {
+    if (blocks[b_index].departure_time - dt >= (blocks[b_index].arrival_time + blocks[b_index].service_duration)) {
 
       blocks[b_index].departure_time -= dt;
     }
@@ -562,12 +562,12 @@ schedule_struct local_search_opt_schedule_lambert_only(double &init_deltaV, sche
 
         if((move_methods[m] == "add departure") || (move_methods[m]== "sub departure")){
               
-            bool b_not_last_elem = b < (schedule_sol.blocks.size() - 1);
+            bool b_not_last_elem = (b < (init_schedule.blocks.size() - 1));
 
-            if (b_not_last_elem){
+            if (b_not_last_elem == true){
               
               bool condition_add = ((move_methods[m] == "add departure") && (schedule_sol.blocks[b].departure_time < schedule_sol.blocks[b+1].arrival_time));
-              bool condition_sub = ((move_methods[m] == "sub departure") && (departure_constraints[b] < schedule_sol.blocks[b].departure_time));
+              bool condition_sub = ((move_methods[m] == "sub departure") && (departure_constraints[b] <= schedule_sol.blocks[b].departure_time));
               
 
               if (condition_add || condition_sub){
@@ -594,7 +594,7 @@ schedule_struct local_search_opt_schedule_lambert_only(double &init_deltaV, sche
         
             if(b > 0){
 
-              bool condition_add = ((move_methods[m] == "add arrival") && (schedule_sol.blocks[b].arrival_time < arrival_constraints[b]));
+              bool condition_add = ((move_methods[m] == "add arrival") && (schedule_sol.blocks[b].arrival_time <= arrival_constraints[b]));
               bool condition_sub = ((move_methods[m] == "sub arrival") && (schedule_sol.blocks[b-1].departure_time < schedule_sol.blocks[b].arrival_time));
 
 
@@ -691,7 +691,8 @@ schedule_struct local_search_opt_schedule_lambert_only(double &init_deltaV, sche
       deltaVminima_so_far = std::abs(neighbourhood_minima);
       init_schedule = list_of_schedules[index_minima];
 
-      //view_schedule(list_of_schedules[index_minima]);
+      view_schedule(list_of_schedules[index_minima]);
+      std::cout<<"Total DeltaV: "<<deltaVminima_so_far<<"\n";
     }
 
 

@@ -27,7 +27,7 @@ t_prev, the name of the client satellite (departure destination) and that of the
 
 
 
-// This is basically exhaustive search for a given pair of satellites 
+// This is exhaustive search for a given pair of satellites 
 void find_optimal_trajectory(std::string service_satname,std::string client_satname, double t_prev, double t_request ,arma::vec &v1sol, arma::vec &v2sol, arma::vec &r1sol, arma::vec &r2sol, double &tof_optimal, std::vector<arma::vec>&trajs
 ,DataFrame simfile, std::string method, bool write_to_file, double &DeltaVMinima){
 
@@ -76,7 +76,7 @@ void find_optimal_trajectory(std::string service_satname,std::string client_satn
     arma::vec vz_client = vz_sat.elem(client_sat_idxs) ; 
 
     // available x,t for the service shuttle 
-    arma::uvec t_service_idxs = arma::find( t_service_sat < t_request);
+    arma::uvec t_service_idxs = arma::find((t_service_sat >= t_prev) && (t_service_sat < t_request));
     arma::vec available_t_service = t_service_sat.elem(t_service_idxs);
 
     arma::vec available_x_service = x_service_sat.elem(t_service_idxs);
@@ -89,7 +89,7 @@ void find_optimal_trajectory(std::string service_satname,std::string client_satn
 
 
     // available x,t for the client
-    arma::uvec t_client_idxs = arma::find(t_client <= t_request);
+    arma::uvec t_client_idxs = arma::find((t_client <= t_request) && (t_client > t_prev));
     arma::vec available_t_client = t_client.elem(t_client_idxs);
 
     arma::vec available_x_client = x_client.elem(t_client_idxs);
@@ -103,7 +103,8 @@ void find_optimal_trajectory(std::string service_satname,std::string client_satn
     DeltaVMinima = -1.0; 
 
     int sols_tot = 0; 
-    
+    double idealdep = 0;
+    double idealarr = 0; 
     //std::cout<<"finding optimal trajectory"; 
     // for every possible departure time from the service depot
     for ( int t_ser=0 ; t_ser < available_t_service.n_elem ; t_ser++ ){
@@ -127,7 +128,7 @@ void find_optimal_trajectory(std::string service_satname,std::string client_satn
         arma::vec valid_vy_client = available_vy_client.elem(valid_arrivals);
         arma::vec valid_vz_client = available_vz_client.elem(valid_arrivals);
 
-
+    
         // for all possible times of flight for the given departure time
         for(int t_cl = 0; t_cl < possible_tofs.n_elem ; t_cl++){
             
@@ -138,9 +139,11 @@ void find_optimal_trajectory(std::string service_satname,std::string client_satn
 
             // calculate the lambert transfers that are possible
 
-            if (method == "lambert"){ 
+            if (method == "lambert"){
 
-            std::vector<arma::vec> sols = lambert_solver(r_service, r_client_loop, possible_tofs(t_cl), MU_EARTH, 0, 10);
+            
+
+            std::vector<arma::vec> sols = lambert_solver(r_service, r_client_loop, possible_tofs(t_cl), MU_EARTH, 0, 100);
             
             // for all possible lambert transfers compute the delta V
                 for (int sol=0 ; sol < sols.size(); sol++){
@@ -184,7 +187,7 @@ void find_optimal_trajectory(std::string service_satname,std::string client_satn
                     if ((sols_tot > 1) && (deltaTotal < DeltaVMinima) ){
 
                         DeltaVMinima = deltaTotal;
-
+        
                         v1sol = v1sol_loop;
                         v2sol = v2sol_loop; 
 
@@ -193,11 +196,15 @@ void find_optimal_trajectory(std::string service_satname,std::string client_satn
 
                         tof_optimal = possible_tofs(t_cl);
 
+                        idealarr = valid_t_client(t_cl) ; 
+                        idealdep = available_t_service(t_ser); 
+                            
                     }
 
                     else if (sols_tot == 1)
                     {
                         DeltaVMinima = deltaTotal;
+
                     }
                 
 
@@ -249,6 +256,9 @@ void find_optimal_trajectory(std::string service_satname,std::string client_satn
     }
 
 
+
+    std::cout<<"ideal dep: "<<idealdep<<","<<"ideal arrival: "<<idealarr<<"\n";
+
     //std::cout << "DeltaVMinima : " << DeltaVMinima << std::endl; 
 
 }
@@ -297,7 +307,7 @@ void find_optimal_trajectory_no_iter(std::string service_satname, std::string cl
     arma::vec t_service_sat = t_sat.elem(service_sat_idxs);
     //arma::uword t_service_departure_idx = arma::index_min(arma::abs(t_service_sat - t_departure));
 
-    arma::uvec idxs_greater_dep = arma::find(t_service_sat >= t_departure); 
+    arma::uvec idxs_greater_dep = arma::find(t_service_sat == t_departure); 
 
     t_service_sat = t_service_sat.elem(idxs_greater_dep); 
 
@@ -336,7 +346,7 @@ void find_optimal_trajectory_no_iter(std::string service_satname, std::string cl
     arma::vec t_client = t_sat.elem(client_sat_idxs) ; 
 
     //arma::uword t_client_arrival_idx = arma::index_min(arma::abs(t_client - t_arrival));
-    arma::uvec idxs_greater_arr = arma::find(t_client >= t_arrival); 
+    arma::uvec idxs_greater_arr = arma::find(t_client == t_arrival); 
     t_client = t_client.elem(idxs_greater_arr); 
 
     arma::uword t_client_arrival_idx =  arma::index_min(t_client); 
@@ -409,8 +419,6 @@ void find_optimal_trajectory_no_iter(std::string service_satname, std::string cl
                 
                 deltaVsols = deltaTotal; 
 
-
-
             }
 
 
@@ -473,8 +481,10 @@ void find_optimal_trajectory_no_iter(std::string service_satname, std::string cl
     traj_file.close();
     }
 
+    
 
   }
+
 
 
 

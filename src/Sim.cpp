@@ -11,6 +11,9 @@
 #include <thread>
 #include <vector>
 
+
+
+#include "Tabu_search.hpp"
 #include "LambertSolver.hpp"
 #include "Local_search.hpp"
 #include "Nbody.hpp"
@@ -19,6 +22,29 @@
 #include "Exact_methods.hpp"
 #include "Simulated_Annealing.hpp"
 #include "VNS.cpp"
+
+
+
+
+
+void run_es(schedule_struct sched_in){
+
+
+    for(int i=1 ; i < sched_in.blocks.size(); i++){
+        
+        task_block fromblock = sched_in.blocks[i-1]; 
+        task_block toblock = sched_in.blocks[i];
+
+        run_exhaustive_search(fromblock.satname, toblock.satname, fromblock.departure_time, toblock.arrival_time, "WalkerDelta.csv", "","lambert");
+        std::cout<<"\n"; 
+
+    }
+}
+
+
+
+
+
 
 int main(int argc, char *argv[])
 {
@@ -32,15 +58,24 @@ int main(int argc, char *argv[])
   double inclination_in_deg = 56;
   double inclinationDiff_in_deg = 2;
 
-  // run_simulation( "WalkerDelta.csv", "walker_delta", 60000,  10,
-  //               altitude_m, num_planes, num_satellites, relative_phase,
-  //             deg_to_rads(inclination_in_deg), 1.0,deg_to_rads(inclinationDiff_in_deg));
+  run_simulation( "WalkerDelta.csv", "walker_delta", 100000,  10,
+                 altitude_m, num_planes, num_satellites, relative_phase,
+               deg_to_rads(inclination_in_deg), 1.0,deg_to_rads(inclinationDiff_in_deg));
 
-  // std::cout << "------------------Running exact method (DP)---------------------"<<std::endl;
 
-  // run_exhaustive_search("service_1", "sat_0", 0.0, 30000.0, "WalkerDelta.csv", "Trajectories.csv","lambert");
 
-  // run_exhaustive_search("service_1", "sat_0", 0.0, 30000.0, "WalkerDelta.csv", "","edelbaum");
+  std::cout<<"finished running sim"<<"\n";
+
+
+  std::vector<double> move_size;
+
+  for (int i = 0; i<=6000 ; i+=100){
+    
+      move_size.push_back(i);
+    
+  }
+
+  
 
   std::cout << "------------------Running Local Search---------------------" << std::endl;
 
@@ -50,10 +85,10 @@ int main(int argc, char *argv[])
 
   // inputs to generate initial schedule
   int num_sat_visits = 3;
-  double t_final = 50000;
+  double t_final = 100000;
   double service_time = 1000;
   std::string depot_name = "service_1";
-  std::vector<std::string> client_satnames = {"sat_0", "sat_3", "sat_10"};
+  std::vector<std::string> client_satnames = {"sat_0", "sat_3", "sat_10","sat_1","sat_4","sat_12","sat_15","sat_20","sat_14","sat_18"};
 
   // initializing init schedule
   std::vector<double> t_depart;
@@ -65,9 +100,9 @@ int main(int argc, char *argv[])
   double deltaV_of_schedule_init;
 
   // ideal case
-  std::vector<double> move_size = {100, 200, 500, 1000, 1500, 3000};
+  //std::vector<double> move_size = {100, 200, 400,500,600, 700, 1000, 1500, 1800, 2000,2500,3000,3500,4000,4500,5000};
 
-  // std::vector<double> move_size = {  3000,1000,1500,500,200,100};
+  //std::vector<double> move_size = {100,1000};
 
   arma::vec x_sat = simfile.getNumeric("x");
   arma::vec y_sat = simfile.getNumeric("y");
@@ -110,19 +145,27 @@ int main(int argc, char *argv[])
   // std::vector<std::string> moves_to_consider = {"sub arrival"};
 
   // formulation 2
-  std::vector<std::string> moves_to_consider = {"add departure", "add arrival", "sub departure", "sub arrival"};
+  std::vector<std::string> moves_to_consider = {"add departure", "sub arrival", "sub departure", "add arrival"};
 
   // formulation 3
   // std::vector<std::string> moves_for_local_search = {"swap slots"};
 
   //schedule_struct ls = run_local_search( simfile, move_size,moves_to_consider,
     //                                    sat_names_in_schedule, t_depart, t_arrive,
-      //                                  deltaV_of_schedule_init, service_time );
+      //                                 deltaV_of_schedule_init, service_time );
 
+    
 
+  //std::cout << "running tabu search" << std::endl; 
+
+  //run_tabu_search(simfile, move_size,moves_to_consider,
+    //                sat_names_in_schedule,t_depart, t_arrive,
+      //              deltaV_of_schedule_init, service_time);
+ 
+  
   std::cout << "running variable neighbourhood search" << std::endl; 
 
-  //vn_search(deltaV_of_schedule_init, , move_size,simfile, service_time, moves_to_consider, 200); 
+  //vn_search(deltaV_of_schedule_init, ls, move_size,simfile, service_time, moves_to_consider, 500); 
 
   //view_schedule(ls); 
 
@@ -132,17 +175,28 @@ int main(int argc, char *argv[])
   //                     t_depart, t_arrive,
   //                  deltaV_of_schedule_init, service_time, cooling_param, maxiter, T_init);
 
-  run_vn_search(simfile, move_size, moves_to_consider,
-                sat_names_in_schedule, t_depart, t_arrive,
-                deltaV_of_schedule_init, service_time, 150);
-
+  //run_vn_search(simfile, move_size, moves_to_consider,
+    //            sat_names_in_schedule, t_depart, t_arrive,
+      //          deltaV_of_schedule_init, service_time,1000);
+ 
   std::cout << "------------------Running Dynamic Program---------------------" << std::endl;
 
   double initdeltavDP;
+
+
   // schedule_struct schedule_init =create_schedule(initdeltavDP,t_arrive,t_depart,sat_names_in_schedule,simfile) ;
 
   schedule_struct schedule_init = create_schedule_lambert_only(initdeltavDP, t_arrive, t_depart, sat_names_in_schedule, simfile, service_time);
+    
 
+  view_schedule(schedule_init); 
+
+  int ret = dynamic_program_fixed_tasksize_Tfixed(schedule_init, 100, 1,schedule_init.blocks.size()-1, 70000,simfile);
+
+
+  view_schedule(schedule_init);
+
+  /*  
   std::cout << (int)schedule_init.blocks.size() << std::endl;
 
   finding_individual_minimas_dynamic_programming(schedule_init, simfile, 100);
@@ -159,6 +213,10 @@ int main(int argc, char *argv[])
 
   std::cout << "Exact method DeltaV: " << deltaVoptimal_exact << "\n";
   std::cout << "Gap : " << std::abs(deltaV_of_schedule_init - deltaVoptimal_exact) / deltaVoptimal_exact * 100 << " %" << "\n";
+
+
+  */
+
 
   /*
 

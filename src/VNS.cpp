@@ -45,8 +45,10 @@ int find_minima_index(std::vector<double> v)
 }
 
 void vn_search(double &init_deltaV, schedule_struct& init_schedule, std::vector<double> dt_move,
-                          DataFrame simfile, double service_time, std::vector<std::string> move_methods, int max_iter)
-{
+                          DataFrame simfile, double service_time, std::vector<std::string> move_methods, int max_iter){
+
+  double temp = max_iter/2;
+
 
   std::map<int, std::pair<std::string, double>> possible_moves;
   int k = 0;
@@ -78,9 +80,18 @@ void vn_search(double &init_deltaV, schedule_struct& init_schedule, std::vector<
 
   int move_choice = 0;
 
+
+
+  std::random_device rd;                      // non-deterministic seed
+  std::mt19937 gen(rd());                     // Mersenne Twister RNG
+                                              //
+  std::uniform_real_distribution<> dist(0.0, 1.0); // range [1, 100]
+
+  double decay = 0.9; 
+
   while (iterval < max_iter)
-  {
-    iterval += 1;
+  { temp*=0.6;
+    iterval +=1;
     std::pair<std::string, double> move_current = possible_moves[move_choice];
     // neighbourhood solutions
     std::vector<schedule_struct> list_of_schedules;
@@ -109,7 +120,7 @@ void vn_search(double &init_deltaV, schedule_struct& init_schedule, std::vector<
         {
 
           bool condition_add = ((move_current.first == "add departure") && (schedule_sol.blocks[b].departure_time < schedule_sol.blocks[b + 1].arrival_time));
-          bool condition_sub = ((move_current.first == "sub departure") && (departure_constraints[b] < schedule_sol.blocks[b].departure_time));
+          bool condition_sub = ((move_current.first == "sub departure") && (departure_constraints[b] <= schedule_sol.blocks[b].departure_time));
 
           if (condition_add || condition_sub)
           {
@@ -132,7 +143,7 @@ void vn_search(double &init_deltaV, schedule_struct& init_schedule, std::vector<
         if (b > 0)
         {
 
-          bool condition_add = ((move_current.first == "add arrival") && (schedule_sol.blocks[b].arrival_time < arrival_constraints[b]));
+          bool condition_add = ((move_current.first == "add arrival") && (schedule_sol.blocks[b].arrival_time <= arrival_constraints[b]));
           bool condition_sub = ((move_current.first == "sub arrival") && (schedule_sol.blocks[b - 1].departure_time < schedule_sol.blocks[b].arrival_time));
 
           if (condition_add || condition_sub)
@@ -178,17 +189,39 @@ void vn_search(double &init_deltaV, schedule_struct& init_schedule, std::vector<
     // if no improvement is found, then stop
     if (neighbourhood_minima >= deltaVminima_so_far)
     {
-      if (move_choice == possible_moves.size() - 1)
-      {
+        
+        
+        move_choice += 4; 
+        /*
+        //std::cout <<"step = "<<random_step << std::endl;
 
-        move_choice -= move_choice;
-      }
+        // we need to wrap around the max array len 
+        
 
-      else
-      {
+        if(temp <= (random_step/(double)possible_moves.size()) ){
 
-        move_choice += 1;
-      }
+        move_choice += random_step; 
+        move_choice = move_choice % (possible_moves.size()-1);
+        
+        }*/
+        
+        double move_random = dist(gen); 
+
+        decay *=0.70;
+
+        if (move_random < decay){
+        
+        int index_minima = find_minima_index(deltaVs_of_neighbourhood);
+
+        deltaVminima_so_far = std::abs(neighbourhood_minima);
+        init_schedule = list_of_schedules[index_minima];
+
+        //move_choice +=1;
+        
+        } 
+           
+
+        
     }
 
     else
