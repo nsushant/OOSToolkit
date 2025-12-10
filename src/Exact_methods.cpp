@@ -396,7 +396,15 @@ int dynamic_program_fixed_tasksize_Tfixed(schedule_struct& sched_init, double dt
                 }
 
             } 
+            
 
+            bool feasibility = is_feasible_sol(sched_sub.blocks[b-1], sched_sub.blocks[b], simfile, 
+                                sched_sub.blocks[b-1].departure_time, sched_sub.blocks[b].arrival_time);
+            
+            if(feasibility == false){
+
+                continue; 
+            }
 
 
             double deltav_upto_block = calculate_deltav_upto_thisblock(b_reached, sched_sub, simfile, lookup);
@@ -429,6 +437,17 @@ int dynamic_program_fixed_tasksize_Tfixed(schedule_struct& sched_init, double dt
 
             if(sched_add.blocks[b].arrival_time <= sched_add.blocks[b-1].departure_time){
                 break; 
+            }
+             
+
+
+            
+            bool feasibility = is_feasible_sol(sched_add.blocks[b-1], sched_add.blocks[b], simfile, 
+                                sched_add.blocks[b-1].departure_time, sched_add.blocks[b].arrival_time);
+            
+            if(feasibility == false){
+
+                continue; 
             }
 
             

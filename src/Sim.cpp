@@ -67,13 +67,13 @@ int main(int argc, char *argv[])
   std::cout<<"finished running sim"<<"\n";
 
 
-  std::vector<double> move_size;
+  //std::vector<double> move_size;
 
-  for (int i = 0; i<=6000 ; i+=100){
+  //for (int i = 0; i<=6000 ; i+=100){
     
-      move_size.push_back(i);
+     // move_size.push_back(i);
     
-  }
+  //}
 
   
 
@@ -100,7 +100,7 @@ int main(int argc, char *argv[])
   double deltaV_of_schedule_init;
 
   // ideal case
-  //std::vector<double> move_size = {100, 200, 400,500,600, 700, 1000, 1500, 1800, 2000,2500,3000,3500,4000,4500,5000};
+  std::vector<double> move_size = {100, 200, 400,500,600, 700, 1000, 1500};
 
   //std::vector<double> move_size = {100,1000};
 
@@ -145,17 +145,17 @@ int main(int argc, char *argv[])
   // std::vector<std::string> moves_to_consider = {"sub arrival"};
 
   // formulation 2
-  std::vector<std::string> moves_to_consider = {"add departure", "sub arrival", "sub departure", "add arrival"};
+  std::vector<std::string> moves_to_consider = {"add departure", "sub arrival", "sub departure", "add arrival","move_dt2"};
 
   // formulation 3
   // std::vector<std::string> moves_for_local_search = {"swap slots"};
 
-  //schedule_struct ls = run_local_search( simfile, move_size,moves_to_consider,
-    //                                    sat_names_in_schedule, t_depart, t_arrive,
-      //                                 deltaV_of_schedule_init, service_time );
+  schedule_struct ls = run_local_search( simfile, move_size,moves_to_consider,
+                                        sat_names_in_schedule, t_depart, t_arrive,
+                                       deltaV_of_schedule_init, service_time );
 
     
-
+  view_schedule(ls); 
   //std::cout << "running tabu search" << std::endl; 
 
   //run_tabu_search(simfile, move_size,moves_to_consider,
@@ -189,12 +189,14 @@ int main(int argc, char *argv[])
   schedule_struct schedule_init = create_schedule_lambert_only(initdeltavDP, t_arrive, t_depart, sat_names_in_schedule, simfile, service_time);
     
 
+  run_es(schedule_init); 
+
   view_schedule(schedule_init); 
 
-  int ret = dynamic_program_fixed_tasksize_Tfixed(schedule_init, 100, 1,schedule_init.blocks.size()-1, 70000,simfile);
+  //int ret = dynamic_program_fixed_tasksize_Tfixed(schedule_init, 100, 1,schedule_init.blocks.size()-1, 70000,simfile);
 
 
-  view_schedule(schedule_init);
+  //view_schedule(schedule_init);
 
   /*  
   std::cout << (int)schedule_init.blocks.size() << std::endl;
