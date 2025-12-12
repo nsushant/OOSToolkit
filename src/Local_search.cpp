@@ -19,141 +19,174 @@ search.
 */
 
 // moves
-void move_dt(task_block &tb, double dt) {
+void move_dt(task_block &tb, double dt)
+{
 
-  // requires both lambert tranfers to and from the block to be 
+  // requires both lambert tranfers to and from the block to be
   // recomputed
 
   tb.arrival_time -= dt;
   tb.departure_time -= dt;
-
 }
 
+void move_dt2(std::vector<task_block> &blocks, int b_index, double dt)
+{
 
+  if (b_index > 0)
+  {
 
-void move_dt2(std::vector<task_block> &blocks, int b_index, double dt) {
-
-  if (b_index == 0) {
-
-    blocks[b_index].departure_time += dt; /// 2 - ((int)dt / 2 % 100);
-
-  }
-
-  else {
-
-    if (blocks[b_index].arrival_time > blocks[b_index - 1].departure_time) {
+    if (blocks[b_index].arrival_time - dt > blocks[b_index - 1].departure_time)
+    {
 
       blocks[b_index].arrival_time -= dt;
-      // blocks[b_index].arrival_time += dt;
-
-      if (blocks[b_index].departure_time == 0) {
-
-        blocks[b_index].departure_time += 0;
-
-      }
-
-      else {
-
-        blocks[b_index].departure_time += dt / 2 - ((int)dt / 2 % 100);
-      }
     }
-  }
-}
-void move_add_arrival(std::vector<task_block> &blocks, int b_index, double dt) {
-
-    //except for the first block
-    if (b_index > 0 ) {
-        
-    // ensure that the addition in arrival time does not make arrival occur after the departure time
-    if ((blocks[b_index].arrival_time + blocks[b_index].service_duration + dt) <= blocks[b_index].departure_time) {
-
-        blocks[b_index].arrival_time += dt;
-
+    else
+    {
+      blocks[b_index].arrival_time -= 0.0;
     }
 
+    if (b_index == ((int)blocks.size() - 1))
+    {
 
-    // since the departure time of the last block is 0 
-
-    else if(b_index == (blocks.size()-1)){blocks[b_index].arrival_time += 0;}
-
+      blocks[b_index].departure_time += 0;
     }
 
-
-}
-void move_add_departure(std::vector<task_block> &blocks, int b_index,
-                        double dt) {
-
-  //for all but the second to last block                          
-  if ( b_index < (blocks.size() - 1) ) {
-
-    // make sure the shuttle departs before the next expected arrival
-    if (blocks[b_index].departure_time + dt <
-        blocks[b_index + 1].arrival_time) {
+    else if (blocks[b_index].departure_time + dt < blocks[b_index + 1].arrival_time)
+    {
 
       blocks[b_index].departure_time += dt;
     }
-
-
   }
+}
 
+void move_dt2_inv(std::vector<task_block> &blocks, int b_index, double dt)
+{
 
+  if (b_index > 0)
+  {
+
+    if (blocks[b_index].arrival_time + dt < blocks[b_index].arrival_constraint)
+    {
+
+      blocks[b_index].arrival_time += dt;
+      // blocks[b_index].arrival_time += dt;
+    }
+
+    else
+    {
+
+      blocks[b_index].arrival_time += 0;
+    }
+
+    if (b_index == ((int)blocks.size() - 1))
+    {
+
+      blocks[b_index].departure_time += 0;
+    }
+
+    else if (blocks[b_index].departure_time - dt > blocks[b_index].arrival_constraint + blocks[b_index].service_duration)
+    {
+      blocks[b_index].departure_time -= dt;
+    }
+  }
+}
+
+void move_add_arrival(std::vector<task_block> &blocks, int b_index, double dt)
+{
+
+  // except for the first block
+  if (b_index > 0)
+  {
+
+    // ensure that the addition in arrival time does not make arrival occur after the departure time
+    if ((blocks[b_index].arrival_time + dt) < blocks[b_index].arrival_constraint)
+    {
+
+      blocks[b_index].arrival_time += dt;
+    }
+
+    // since the departure time of the last block is 0
+
+    else if (b_index == (blocks.size() - 1))
+    {
+      blocks[b_index].arrival_time += 0;
+    }
+  }
+}
+void move_add_departure(std::vector<task_block> &blocks, int b_index,
+                        double dt)
+{
+
+  // for all but the second to last block
+  if (b_index < (blocks.size() - 1))
+  {
+
+    // make sure the shuttle departs before the next expected arrival
+    if (blocks[b_index].departure_time + dt <
+        blocks[b_index + 1].arrival_time)
+    {
+
+      blocks[b_index].departure_time += dt;
+    }
+  }
 }
 
 void move_sub_departure(std::vector<task_block> &blocks, int b_index,
-                        double dt) {
-  
-  // for all but the last block
-  if (b_index < (blocks.size() - 1)) {
+                        double dt)
+{
 
-    if (blocks[b_index].departure_time - dt >= (blocks[b_index].arrival_time + blocks[b_index].service_duration)) {
+  // for all but the last block
+  if (b_index < (blocks.size() - 1))
+  {
+
+    if (blocks[b_index].departure_time - dt >= (blocks[b_index].arrival_constraint + blocks[b_index].service_duration))
+    {
 
       blocks[b_index].departure_time -= dt;
     }
   }
-
-
-
 }
 
-
-void move_sub_arrival(std::vector<task_block> &blocks, int b_index, double dt){
+void move_sub_arrival(std::vector<task_block> &blocks, int b_index, double dt)
+{
 
   // for all but the first block
-  if (b_index > 0 ) {
+  if (b_index > 0)
+  {
 
-    if (blocks[b_index].arrival_time - dt > blocks[b_index - 1].departure_time) {
+    if (blocks[b_index].arrival_time - dt > blocks[b_index - 1].departure_time)
+    {
 
       blocks[b_index].arrival_time -= dt;
     }
-
   }
-
-
 }
 
-
 void swap_slots(std::vector<task_block> &blocks, int b_index, double dt,
-                DataFrame simfile) {
+                DataFrame simfile)
+{
 
-  double deadline = blocks[b_index].demand_deadline;
+  double deadline = blocks[b_index].arrival_constraint;
 
   // get valid blocks
   std::vector<int> candidate_blocks;
 
-  if (b_index % 2 == 0) {
+  if (b_index % 2 == 0)
+  {
 
     task_block copyblock = blocks[b_index + 2];
 
-    if (copyblock.departure_time < deadline) {
+    if (copyblock.departure_time < deadline)
+    {
 
       double service_minimum =
           blocks[b_index].arrival_time + blocks[b_index].service_duration;
 
       blocks[b_index + 2].satname = blocks[b_index].satname;
       blocks[b_index + 2].service_duration = blocks[b_index].service_duration;
-      blocks[b_index + 2].demand_deadline = blocks[b_index].demand_deadline;
+      blocks[b_index + 2].arrival_constraint = blocks[b_index].arrival_constraint;
 
-      blocks[b_index].demand_deadline = copyblock.demand_deadline;
+      blocks[b_index].arrival_constraint = copyblock.arrival_constraint;
       blocks[b_index].service_duration = copyblock.service_duration;
       blocks[b_index].satname = copyblock.satname;
 
@@ -161,7 +194,8 @@ void swap_slots(std::vector<task_block> &blocks, int b_index, double dt,
                                        (blocks[b_index + 2].arrival_time +
                                         blocks[b_index + 2].service_duration));
 
-      if (timeslot_not_long_enough) {
+      if (timeslot_not_long_enough)
+      {
 
         double time_adjustment_needed = (blocks[b_index + 2].arrival_time +
                                          blocks[b_index + 2].service_duration) -
@@ -182,7 +216,8 @@ void swap_slots(std::vector<task_block> &blocks, int b_index, double dt,
           (blocks[b_index].departure_time <
            (blocks[b_index].arrival_time + blocks[b_index].service_duration));
 
-      if (timeslot_not_long_enough_2) {
+      if (timeslot_not_long_enough_2)
+      {
 
         double time_adjustment_needed =
             (blocks[b_index].arrival_time + blocks[b_index].service_duration) -
@@ -218,33 +253,47 @@ void swap_slots(std::vector<task_block> &blocks, int b_index, double dt,
 }
 
 void move_wrapper(std::vector<task_block> &blocks, int b_index, double dt,
-                  std::string method, DataFrame simfile) {
+                  std::string method, DataFrame simfile)
+{
 
-  if (method == "add arrival") {
+  if (method == "add arrival")
+  {
     move_add_arrival(blocks, b_index, dt);
   }
-  if (method == "add departure") {
+  if (method == "add departure")
+  {
     move_add_departure(blocks, b_index, dt);
   }
-  if (method == "sub arrival") {
+  if (method == "sub arrival")
+  {
     move_sub_arrival(blocks, b_index, dt);
   }
 
-  if (method == "sub departure") {
+  if (method == "sub departure")
+  {
     move_sub_departure(blocks, b_index, dt);
   }
-  
-  if (method == "move_dt2") {
+
+  if (method == "move_dt2")
+  {
     move_dt2(blocks, b_index, dt);
   }
-  
-  if (method == "swap_slots") {
+
+  if (method == "move_dt2_inv")
+  {
+
+    move_dt2_inv(blocks, b_index, dt);
+  }
+
+  if (method == "swap_slots")
+  {
     swap_slots(blocks, b_index, dt, simfile);
   }
 }
 
 // allows you to print out the schedule struct in a readable format
-void view_schedule(schedule_struct schedule_to_print) {
+void view_schedule(schedule_struct schedule_to_print)
+{
 
   // Define column widths
   const int w1 = 15; // Task
@@ -262,7 +311,8 @@ void view_schedule(schedule_struct schedule_to_print) {
   std::cout << std::string(w1 + w2 + w3 + w4 + 7, '-') << "\n";
 
   // Print each task
-  for (const auto &t : schedule_to_print.blocks) {
+  for (const auto &t : schedule_to_print.blocks)
+  {
     std::cout << "| " << std::left << std::setw(w1 - 1) << t.satname << "| "
               << std::setw(w2 - 1) << t.arrival_time << "| "
               << std::setw(w3 - 1) << t.departure_time << "| " << std::right
@@ -273,119 +323,114 @@ void view_schedule(schedule_struct schedule_to_print) {
   std::cout << std::string(w1 + w2 + w3 + w4 + 7, '-') << "\n";
 }
 
+void init_dep_arrival_times_random(std::vector<double> &departure_times, std::vector<double> &arrival_times, double period, double service_time, int num_sats)
+{
 
-void init_dep_arrival_times_random(std::vector<double> &departure_times, std::vector<double> &arrival_times,double period, double service_time, int num_sats){
-        
-        // if we have n sats to visit, we will have 2n +1 task blocks
+  // if we have n sats to visit, we will have 2n +1 task blocks
 
-        int num_blocks = 2*num_sats + 1;
+  int num_blocks = 2 * num_sats + 1;
 
-        departure_times.push_back(0.0);
-        arrival_times.push_back(0.0);
-        
-        //seed random number generator
-        std::random_device rdom;  
-        std::mt19937 gen(rdom());
-        std::uniform_int_distribution<> distrib(1,3);
+  departure_times.push_back(0.0);
+  arrival_times.push_back(0.0);
 
-        for(int i = 1 ; i < num_blocks ; i++){
-         
-          int orbmul = distrib(gen);
-          double orbt = period*orbmul;
-          
-          arrival_times.push_back(departure_times[i-1] + orbt); 
-          departure_times.push_back(arrival_times[i] + service_time);
-          
-        }
+  // seed random number generator
+  std::random_device rdom;
+  std::mt19937 gen(rdom());
+  std::uniform_int_distribution<> distrib(1, 3);
 
+  for (int i = 1; i < num_blocks; i++)
+  {
+
+    int orbmul = distrib(gen);
+    double orbt = period * orbmul;
+
+    arrival_times.push_back(departure_times[i - 1] + orbt);
+    departure_times.push_back(arrival_times[i] + service_time);
+  }
 }
 
+void init_dep_arrival_times_strict_timespan(std::vector<double> &departure_times, std::vector<double> &arrival_times, double final_time, double service_time, int num_sats)
+{
 
-void init_dep_arrival_times_strict_timespan(std::vector<double> &departure_times, std::vector<double> &arrival_times, double final_time, double service_time, int num_sats){
-      
-      int num_blocks = 2*num_sats + 1;
+  int num_blocks = 2 * num_sats + 1;
 
-      departure_times.push_back(0.0); 
-      arrival_times.push_back(0.0); 
-      
-      int dt = ((int)final_time/num_blocks) - ((int)final_time/num_blocks % 100); 
+  departure_times.push_back(0.0);
+  arrival_times.push_back(0.0);
 
-      double t_tot = 0.0;
+  int dt = ((int)final_time / num_blocks) - ((int)final_time / num_blocks % 100);
 
-      for (int i = 1; i < num_blocks; i++){
-      
-        t_tot+=dt; 
-        arrival_times.push_back(t_tot);
-        departure_times.push_back(t_tot + service_time); 
-        
+  double t_tot = 0.0;
 
-        if (arrival_times[i] > departure_times[i] + dt){
-        
-          std::cout<<"May contain overlapping blocks"<<std::endl; 
-        
+  for (int i = 1; i < num_blocks; i++)
+  {
+
+    t_tot += dt;
+    arrival_times.push_back(t_tot);
+    departure_times.push_back(t_tot + service_time);
+
+    if (arrival_times[i] > departure_times[i] + dt)
+    {
+
+      std::cout << "May contain overlapping blocks" << std::endl;
+    }
+  }
+}
+
+std::vector<std::string> init_satname_array(std::string service_satname, std::vector<std::string> client_satnames, bool allow_revisits, double num_sats)
+{
+
+  int num_blocks = 2 * num_sats + 1;
+
+  std::vector<std::string> satnames;
+
+  satnames.push_back(service_satname);
+
+  int d = 0;
+
+  for (int i = 1; i < num_blocks; i++)
+  {
+
+    if (i % 2 == 0)
+    {
+
+      satnames.push_back(service_satname);
+    }
+
+    else
+    {
+
+      if (allow_revisits == true)
+      {
+
+        if (d == client_satnames.size())
+        {
+
+          d -= d;
         }
 
+        satnames.push_back(client_satnames[d]);
+        d += 1;
       }
 
-}
+      else
+      {
 
-
-std::vector<std::string> init_satname_array(std::string service_satname, std::vector<std::string> client_satnames, bool allow_revisits, double num_sats){
-
-    int num_blocks = 2*num_sats + 1; 
-
-    std::vector<std::string> satnames; 
-
-    satnames.push_back(service_satname); 
-
-    int d = 0;
-
-    for (int i = 1; i < num_blocks; i++){
-
-        if (i % 2 == 0){
-          
-          satnames.push_back(service_satname); 
-          
-        }
-          
-
-        else{
-
-          if (allow_revisits == true){
-            
-            if(d==client_satnames.size()){
-
-              d-=d; 
-
-            }
-            
-            satnames.push_back(client_satnames[d]);
-            d+=1;
-
-          }
-
-          else{
-
-            satnames.push_back(client_satnames[d]);
-            d+=1;
-            
-          }
-
-        }
-
-
+        satnames.push_back(client_satnames[d]);
+        d += 1;
+      }
     }
-    
-    return satnames; 
-} 
+  }
 
+  return satnames;
+}
 
 // initialize a schedule
 schedule_struct create_schedule(double &deltaV_of_schedule_init,
                                 std::vector<double> arrival_times,
                                 std::vector<double> departure_times,
                                 std::vector<std::string> satnames,
-                                DataFrame simfile) {
+                                DataFrame simfile)
+{
 
   // initial block for the service depot
 
@@ -405,7 +450,8 @@ schedule_struct create_schedule(double &deltaV_of_schedule_init,
 
   deltaV_of_schedule_init = 0.0;
 
-  for (int i = 1; i < satnames.size(); i++) {
+  for (int i = 1; i < satnames.size(); i++)
+  {
 
     task_block block;
 
@@ -432,7 +478,8 @@ schedule_struct create_schedule(double &deltaV_of_schedule_init,
 schedule_struct create_schedule_lambert_only(
     double &deltaV_of_schedule_init, std::vector<double> arrival_times,
     std::vector<double> departure_times, std::vector<std::string> satnames,
-    DataFrame simfile, double service_time, std::vector<double> deadlines){
+    DataFrame simfile, double service_time, std::vector<double> deadlines)
+{
 
   // initial block for the service depot
 
@@ -452,7 +499,8 @@ schedule_struct create_schedule_lambert_only(
 
   deltaV_of_schedule_init = 0.0;
 
-  for(int i = 1; i < satnames.size(); i++){
+  for (int i = 1; i < satnames.size(); i++)
+  {
 
     task_block block;
 
@@ -464,15 +512,16 @@ schedule_struct create_schedule_lambert_only(
 
     block.departure_time = departure_times[i];
 
-    if (deadlines.size() > 0) {
+    if (deadlines.size() > 0)
+    {
 
-      block.demand_deadline = deadlines[i];
-
+      block.arrival_constraint = deadlines[i];
     }
 
-    else {
+    else
+    {
 
-      block.demand_deadline =  departure_times[i];
+      block.arrival_constraint = arrival_times[i];
     }
 
     double deltaV_transfer = 0.0;
@@ -494,26 +543,15 @@ schedule_struct create_schedule_lambert_only(
 // use local search to find the optimal_schedule
 
 schedule_struct local_search_opt_schedule_lambert_only(double &init_deltaV, schedule_struct init_schedule, std::vector<double> dt_move,
-                                                        DataFrame simfile, double service_time,std::vector<std::string> move_methods){
+                                                       DataFrame simfile, double service_time, std::vector<std::string> move_methods)
+{
 
   double deltaVminima_so_far = init_deltaV;
 
   schedule_struct optimal_schedule;
 
-  
-  std::vector<double> arrival_constraints; 
-  std::vector<double> departure_constraints; 
-
-
-  for(int b=0 ; b < init_schedule.blocks.size(); b++){
-
-    arrival_constraints.push_back(init_schedule.blocks[b].arrival_time);
-    departure_constraints.push_back(init_schedule.blocks[b].departure_time);
-
-
-  }
-
-  while (true) {
+  while (true)
+  {
 
     // neighbourhood solutions
     std::vector<schedule_struct> list_of_schedules;
@@ -525,13 +563,15 @@ schedule_struct local_search_opt_schedule_lambert_only(double &init_deltaV, sche
     neighbourhood_size *= move_methods.size();
     neighbourhood_size *= dt_move.size();
 
-    if (neighbourhood_size == 0) {
+    if (neighbourhood_size == 0)
+    {
       // nothing to explore
       break;
     }
 
     const size_t MAX_NEIGHBOURHOOD = 10000000; // sanity cap
-    if (neighbourhood_size > MAX_NEIGHBOURHOOD) {
+    if (neighbourhood_size > MAX_NEIGHBOURHOOD)
+    {
       std::cerr << "Neighbourhood size too large: " << neighbourhood_size << ". Aborting search to avoid OOM." << std::endl;
       break;
     }
@@ -542,146 +582,155 @@ schedule_struct local_search_opt_schedule_lambert_only(double &init_deltaV, sche
 
     int solnum_neighbourhood = 0;
 
+    // loop over all moves
 
-    //loop over all moves 
-    for (int m = 0; m < move_methods.size(); m++){
-      for (int d = 0; d < dt_move.size(); d++){
-        for (int b = 0; b < init_schedule.blocks.size(); b++){
+    
+      for (int m = 0; m < move_methods.size(); m++)
+      {
+        for (int d = 0; d < dt_move.size(); d++)
+        {
+         
+        for (int b = 0; b < init_schedule.blocks.size(); b++)
+        {
 
+          schedule_struct schedule_sol = init_schedule;
 
-
-        schedule_struct schedule_sol = init_schedule;
-        
-        // apply move to schedule blocks
-        move_wrapper(schedule_sol.blocks, b, dt_move[d], move_methods[m],
+          // apply move to schedule blocks
+          move_wrapper(schedule_sol.blocks, b, dt_move[d], move_methods[m],
                        simfile);
-        
-        
-        double DeltaVMinimaopt;
 
+          double DeltaVMinimaopt;
 
-        if((move_methods[m] == "add departure") || (move_methods[m]== "sub departure")){
-              
-            bool b_not_last_elem = (b < (init_schedule.blocks.size() - 1));
+          bool arrival_constraint_satisfied = schedule_sol.blocks[b].arrival_time <= schedule_sol.blocks[b].arrival_constraint;
+          bool departure_constraint_satisfied = (b >= 1) ? schedule_sol.blocks[b - 1].departure_time >= schedule_sol.blocks[b - 1].arrival_constraint + schedule_sol.blocks[b - 1].service_duration : true;
 
-            if (b_not_last_elem == true){
-              
-              bool condition_add = ((move_methods[m] == "add departure") && (schedule_sol.blocks[b].departure_time < schedule_sol.blocks[b+1].arrival_time));
-              bool condition_sub = ((move_methods[m] == "sub departure") && (departure_constraints[b] <= schedule_sol.blocks[b].departure_time));
-              
+          // if the schedule created by the move is feasible
+          if (arrival_constraint_satisfied && departure_constraint_satisfied)
+          {
 
-              if (condition_add || condition_sub){
-              
-                //finding lowest energy lambert transfer for given tof
+            if (move_methods[m] == "move_dt2" || move_methods[m] == "move_dt2_inv")
+            {
+
+              if ((b != (init_schedule.blocks.size() - 1)) && (b != 0))
+              {
+
+                // std::cout << move_methods[m] << "\n";
+
                 find_optimal_trajectory_no_iter(
-                  schedule_sol.blocks[b].satname,
-                  schedule_sol.blocks[b + 1].satname,
-                  schedule_sol.blocks[b].departure_time,
-                  schedule_sol.blocks[b + 1].arrival_time, simfile, DeltaVMinimaopt);
+                    schedule_sol.blocks[b].satname,
+                    schedule_sol.blocks[b + 1].satname,
+                    schedule_sol.blocks[b].departure_time,
+                    schedule_sol.blocks[b + 1].arrival_time,
+                    simfile, DeltaVMinimaopt);
 
-              
-                schedule_sol.blocks[b+1].deltaV_arrival = DeltaVMinimaopt;
+                schedule_sol.blocks[b + 1].deltaV_arrival = DeltaVMinimaopt;
 
+                find_optimal_trajectory_no_iter(
+                    schedule_sol.blocks[b - 1].satname,
+                    schedule_sol.blocks[b].satname,
+                    schedule_sol.blocks[b - 1].departure_time,
+                    schedule_sol.blocks[b].arrival_time,
+                    simfile, DeltaVMinimaopt);
+
+                schedule_sol.blocks[b].deltaV_arrival = DeltaVMinimaopt;
               }
-              
-             
+            }
 
+            if ((move_methods[m] == "add departure") || (move_methods[m] == "sub departure"))
+            {
+
+              bool b_not_last_elem = (b < (init_schedule.blocks.size() - 1));
+
+              if (b_not_last_elem == true)
+              {
+
+                // finding lowest energy lambert transfer for given tof
+                find_optimal_trajectory_no_iter(
+                    schedule_sol.blocks[b].satname,
+                    schedule_sol.blocks[b + 1].satname,
+                    schedule_sol.blocks[b].departure_time,
+                    schedule_sol.blocks[b + 1].arrival_time, simfile, DeltaVMinimaopt);
+
+                schedule_sol.blocks[b + 1].deltaV_arrival = DeltaVMinimaopt;
+              }
+            }
+
+            if ((move_methods[m] == "add arrival") || (move_methods[m] == "sub arrival"))
+            {
+              if (b > 0)
+              {
+
+                find_optimal_trajectory_no_iter(
+                    schedule_sol.blocks[b - 1].satname,
+                    schedule_sol.blocks[b].satname,
+                    schedule_sol.blocks[b - 1].departure_time,
+                    schedule_sol.blocks[b].arrival_time, simfile, DeltaVMinimaopt);
+
+                schedule_sol.blocks[b].deltaV_arrival = DeltaVMinimaopt;
+              }
             }
           }
 
+          list_of_schedules.push_back(schedule_sol);
 
-        if((move_methods[m] == "add arrival") || (move_methods[m]== "sub arrival")){
-        
-            if(b > 0){
+          // closes for loop over the whole schedule
 
-              bool condition_add = ((move_methods[m] == "add arrival") && (schedule_sol.blocks[b].arrival_time <= arrival_constraints[b]));
-              bool condition_sub = ((move_methods[m] == "sub arrival") && (schedule_sol.blocks[b-1].departure_time < schedule_sol.blocks[b].arrival_time));
+          double totalDeltaV_of_sol = 0.0;
 
+          for (int elem = 0; elem < schedule_sol.blocks.size(); elem++)
+          {
 
-              if (condition_add || condition_sub) {
+            totalDeltaV_of_sol +=
+                std::abs(schedule_sol.blocks[elem].deltaV_arrival);
+          }
 
+          deltaVs_of_neighbourhood(solnum_neighbourhood) = (totalDeltaV_of_sol);
 
-                find_optimal_trajectory_no_iter(
-                  schedule_sol.blocks[b - 1].satname,
-                  schedule_sol.blocks[b].satname,
-                  schedule_sol.blocks[b - 1].departure_time,
-                  schedule_sol.blocks[b].arrival_time, simfile, DeltaVMinimaopt);
-              
-                schedule_sol.blocks[b].deltaV_arrival = DeltaVMinimaopt;
-                
-              }
+          if (totalDeltaV_of_sol == 0)
+          {
+            std::cout << "0 delta V";
+          }
 
-            }
+          solnum_neighbourhood += 1;
 
-        }
-          
+        } // closes iteration over the full schedule
+      } // closes iteration over all move sizes
+    } // closes iteration over all the moves
 
-        list_of_schedules.push_back(schedule_sol);
-        
-        //closes for loop over the whole schedule
-
-        double totalDeltaV_of_sol = 0.0;
-
-        for (int elem = 0; elem < schedule_sol.blocks.size(); elem++) {
-
-          totalDeltaV_of_sol +=
-              std::abs(schedule_sol.blocks[elem].deltaV_arrival);
-        }
-
-        deltaVs_of_neighbourhood(solnum_neighbourhood) = (totalDeltaV_of_sol);
-
-        if (totalDeltaV_of_sol == 0) {
-          std::cout << "0 delta V";
-        }
-
-        solnum_neighbourhood += 1;
-
-        } // closes iteration over the full schedule 
-      }//closes iteration over all move sizes
-    } // closes iteration over all the moves 
-
-    
     neighbourhood_minima = deltaVs_of_neighbourhood.min();
-    // std::cout<< "neighbourhood_minima : "<< neighbourhood_minima <<
-    // std::endl; std::cout<< "neighbourhood_maxima : "<<
-    // deltaVs_of_neighbourhood.max() << std::endl; std::cout<< "size : " <<
-    // deltaVs_of_neighbourhood.size()<< std::endl;
 
     // if no improvement is found, then stop
-    if (neighbourhood_minima >= deltaVminima_so_far) {
-      
+    if (neighbourhood_minima >= deltaVminima_so_far)
+    {
+
       init_deltaV = deltaVminima_so_far;
-      
+
       break;
     }
 
-    
-    //if (neighbourhood_minima == deltaVminima_so_far){
-        
-        
-        //arma::uvec idxs = arma::regspace<arma::uvec>(0, deltaVs_of_neighbourhood.n_elem - 1);
-        
-        //int idxmin = static_cast<int>(arma::index_min(deltaVs_of_neighbourhood));
-        //arma::uvec mask = arma::find(idxs!=idxmin); 
+    // if (neighbourhood_minima == deltaVminima_so_far){
 
-        //idxs = idxs.elem(mask);
+    // arma::uvec idxs = arma::regspace<arma::uvec>(0, deltaVs_of_neighbourhood.n_elem - 1);
 
-        //arma::uword idx = arma::randi<arma::uword>(arma::distr_param(0, idxs.n_elem - 1));
+    // int idxmin = static_cast<int>(arma::index_min(deltaVs_of_neighbourhood));
+    // arma::uvec mask = arma::find(idxs!=idxmin);
 
-        //int random_id = static_cast<int>(idx);
+    // idxs = idxs.elem(mask);
 
-        //int worstsol = static_cast<int>(arma::index_max(deltaVs_of_neighbourhood));  
+    // arma::uword idx = arma::randi<arma::uword>(arma::distr_param(0, idxs.n_elem - 1));
 
+    // int random_id = static_cast<int>(idx);
 
-        //init_schedule = list_of_schedules[worstsol]; 
-        //deltaVminima_so_far = deltaVs_of_neighbourhood[worstsol]; 
+    // int worstsol = static_cast<int>(arma::index_max(deltaVs_of_neighbourhood));
 
-    //}  
-  
+    // init_schedule = list_of_schedules[worstsol];
+    // deltaVminima_so_far = deltaVs_of_neighbourhood[worstsol];
 
+    //}
 
     // else if improvement is found, adopt new solution
-    else {
+    else
+    {
 
       arma::uword index_minima_uword =
           arma::index_min(deltaVs_of_neighbourhood);
@@ -691,42 +740,38 @@ schedule_struct local_search_opt_schedule_lambert_only(double &init_deltaV, sche
       deltaVminima_so_far = std::abs(neighbourhood_minima);
       init_schedule = list_of_schedules[index_minima];
 
-      view_schedule(list_of_schedules[index_minima]);
-      std::cout<<"Total DeltaV: "<<deltaVminima_so_far<<"\n";
+      // std::cout << "Total DeltaV: " << deltaVminima_so_far << "\n";
     }
 
+  } // closes while
 
-  }//closes while
-
-  
-  optimal_schedule = init_schedule;
-  return optimal_schedule;
-
-
+  return init_schedule;
 }
-
 
 schedule_struct local_search_opt_schedule(double init_deltaV,
                                           schedule_struct init_schedule,
-                                          double dt_move, DataFrame simfile){
+                                          double dt_move, DataFrame simfile)
+{
 
   double deltaVminima_so_far = init_deltaV;
 
   schedule_struct optimal_schedule;
 
-  while (true) {
+  while (true)
+  {
 
     // neighbourhood solutions
     std::vector<schedule_struct> list_of_schedules;
     arma::vec deltaVs_of_neighbourhood(init_schedule.blocks.size());
     double neighbourhood_minima;
 
-
-    for (int b = 0; b < init_schedule.blocks.size(); b++) {
+    for (int b = 0; b < init_schedule.blocks.size(); b++)
+    {
 
       schedule_struct schedule_sol = init_schedule;
 
-      if (b == 0) {
+      if (b == 0)
+      {
 
         // move_dt(schedule_sol.blocks[b],dt_move);
 
@@ -734,10 +779,10 @@ schedule_struct local_search_opt_schedule(double init_deltaV,
         schedule_sol.blocks[b].deltaV_arrival = 0.0;
 
         list_of_schedules.push_back(schedule_sol);
-
       }
 
-      else {
+      else
+      {
 
         move_dt(schedule_sol.blocks[b], dt_move);
 
@@ -751,11 +796,10 @@ schedule_struct local_search_opt_schedule(double init_deltaV,
 
       double totalDeltaV_of_sol = 0.0;
 
-      for (int elem = 0; elem < schedule_sol.blocks.size(); elem++) {
-        
-          totalDeltaV_of_sol +=std::abs(schedule_sol.blocks[elem].deltaV_arrival);
+      for (int elem = 0; elem < schedule_sol.blocks.size(); elem++)
+      {
 
-        
+        totalDeltaV_of_sol += std::abs(schedule_sol.blocks[elem].deltaV_arrival);
       }
 
       deltaVs_of_neighbourhood(b) = (totalDeltaV_of_sol);
@@ -766,12 +810,14 @@ schedule_struct local_search_opt_schedule(double init_deltaV,
     neighbourhood_minima = deltaVs_of_neighbourhood.min();
 
     // if no improvement is found, then stop
-    if (neighbourhood_minima >= deltaVminima_so_far) {
+    if (neighbourhood_minima >= deltaVminima_so_far)
+    {
       break;
     }
 
     // else if improvement is found, adopt new solution
-    else {
+    else
+    {
 
       // std::cout<<"improvement found"<<std::endl;
 
@@ -781,7 +827,6 @@ schedule_struct local_search_opt_schedule(double init_deltaV,
       int index_minima = static_cast<int>(index_minima_uword);
 
       deltaVminima_so_far = std::abs(neighbourhood_minima);
- 
 
       init_schedule = list_of_schedules[index_minima];
       // view_schedule(list_of_schedules[index_minima]);
@@ -793,82 +838,40 @@ schedule_struct local_search_opt_schedule(double init_deltaV,
   return optimal_schedule;
 }
 
+schedule_struct run_local_search(DataFrame simfile, std::vector<double> move_size,
+                                 std::vector<std::string> moves_to_consider,
+                                 std::vector<std::string> sat_names_in_schedule,
+                                 std::vector<double> t_depart, std::vector<double> t_arrive,
+                                 double &deltaV_of_schedule, double service_time)
+{
 
+  // construct initial schedule using provided departure and arrival times
+  schedule_struct init_schedule = create_schedule_lambert_only(deltaV_of_schedule, t_arrive, t_depart,
+                                                               sat_names_in_schedule, simfile, service_time);
 
-schedule_struct run_local_search( DataFrame simfile, std::vector<double> move_size,  
-                      std::vector<std::string> moves_to_consider,
-                      std::vector<std::string> sat_names_in_schedule ,
-                      std::vector<double> t_depart, std::vector<double> t_arrive, 
-                      double &deltaV_of_schedule, double service_time){
+  std::cout << "\n";
 
+  std::cout << "Initial Schedule" << std::endl;
 
+  view_schedule(init_schedule);
 
+  std::cout << "\n";
 
+  std::cout << "Total Delta V: " << deltaV_of_schedule;
 
+  // Now the optimal schedule is calculated using local search
+  schedule_struct findopt_schedule = local_search_opt_schedule_lambert_only(deltaV_of_schedule, init_schedule, move_size,
+                                                                            simfile, service_time, moves_to_consider);
 
-    //construct initial schedule using provided departure and arrival times 
-    schedule_struct init_schedule = create_schedule_lambert_only(deltaV_of_schedule, t_arrive, t_depart, 
-                                                                  sat_names_in_schedule,simfile, service_time);
+  std::cout << "\n";
 
-    std::cout<< "\n"; 
+  std::cout << "Result of Local Search" << std::endl;
 
-    std::cout << "Initial Schedule"<< std::endl; 
+  view_schedule(findopt_schedule);
 
-    view_schedule(init_schedule);
-    
-    std::cout<< "\n"; 
+  std::cout << "\n";
 
-    std::cout << "Total Delta V: "<< deltaV_of_schedule;
+  std::cout << "Total Delta V: " << deltaV_of_schedule << "\n";
 
-    // Now the optimal schedule is calculated using local search
-    schedule_struct findopt_schedule = local_search_opt_schedule_lambert_only(deltaV_of_schedule, init_schedule, move_size, 
-                                                                              simfile,service_time, moves_to_consider);
-    
-    std::cout<<"\n";
-
-    std::cout << "Result of Local Search"<<std::endl; 
-
-    view_schedule(findopt_schedule);
-
-    std::cout<<"\n";
-
-    std::cout<<"Total Delta V: "<< deltaV_of_schedule<<"\n";
-
-
-   return findopt_schedule; 
-
-
+  return findopt_schedule;
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

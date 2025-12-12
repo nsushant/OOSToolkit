@@ -11,6 +11,7 @@
 #include <vector>
 #include <random>
 #include <numeric>
+#include <map>
 /*
 Author : S. Nigudkar (2025)
 
@@ -44,11 +45,11 @@ int find_minima_index(std::vector<double> v)
   return index_minima;
 }
 
-void vn_search(double &init_deltaV, schedule_struct& init_schedule, std::vector<double> dt_move,
-                          DataFrame simfile, double service_time, std::vector<std::string> move_methods, int max_iter){
+void vn_search(double &init_deltaV, schedule_struct &init_schedule, std::vector<double> dt_move,
+               DataFrame simfile, double service_time, std::vector<std::string> move_methods, int max_iter)
+{
 
-  double temp = max_iter/2;
-
+  double temp = max_iter / 2;
 
   std::map<int, std::pair<std::string, double>> possible_moves;
   int k = 0;
@@ -69,29 +70,44 @@ void vn_search(double &init_deltaV, schedule_struct& init_schedule, std::vector<
   double deltaVminima_so_far = init_deltaV;
   schedule_struct optimal_schedule;
 
-  std::vector<double> arrival_constraints;
-  std::vector<double> departure_constraints;
-
-  for (int b = 0; b < init_schedule.blocks.size(); b++)
-  {
-    arrival_constraints.push_back(init_schedule.blocks[b].arrival_time);
-    departure_constraints.push_back(init_schedule.blocks[b].departure_time);
-  }
-
   int move_choice = 0;
 
+  // std::random_device rd;                       // non-deterministic seed
+  // std::mt19937 gen(rd());                      // Mersenne Twister RNG
+                                               //
+  //std::uniform_real_distribution<> dist(0, 1); // range [1, 100]
+
+  std::random_device rd;                        // Seed source
+  std::mt19937 gen(rd());                       // Mersenne Twister RNG
+  std::bernoulli_distribution drop(0.40);       // 40% chance of "true"
 
 
-  std::random_device rd;                      // non-deterministic seed
-  std::mt19937 gen(rd());                     // Mersenne Twister RNG
-                                              //
-  std::uniform_real_distribution<> dist(0.0, 1.0); // range [1, 100]
+  double decay = 0.9;
 
-  double decay = 0.9; 
+  std::vector<int> tabu_blocks;
 
   while (iterval < max_iter)
-  { temp*=0.6;
-    iterval +=1;
+  {
+    // drop the move 40 % of the time 
+    
+    // A drop seems to sway the results farther away from the minima
+
+    /*if (drop(gen))
+    { 
+       move_choice += 1;
+       
+       if (move_choice >= (possible_moves.size() - 1))
+       {
+        move_choice -= move_choice;
+        move_choice += 1;
+       }
+
+        continue; 
+    }*/
+
+
+    temp *= 0.6;
+    iterval += 1;
     std::pair<std::string, double> move_current = possible_moves[move_choice];
     // neighbourhood solutions
     std::vector<schedule_struct> list_of_schedules;
@@ -101,7 +117,8 @@ void vn_search(double &init_deltaV, schedule_struct& init_schedule, std::vector<
 
     // loop over all moves
     for (int b = 0; b < init_schedule.blocks.size(); b++)
-    {
+    {   
+
 
       schedule_struct schedule_sol = init_schedule;
 
@@ -111,20 +128,49 @@ void vn_search(double &init_deltaV, schedule_struct& init_schedule, std::vector<
 
       double DeltaVMinimaopt;
 
-      if ((move_current.first == "add departure") || (move_current.first == "sub departure"))
+      bool arrival_constraint_satisfied = (b >= 1) ? schedule_sol.blocks[b].arrival_time <= schedule_sol.blocks[b].arrival_constraint : true;
+      bool departure_constraint_satisfied = (b >= 1) ? schedule_sol.blocks[b - 1].departure_time >= schedule_sol.blocks[b - 1].arrival_constraint + schedule_sol.blocks[b - 1].service_duration : true;
+
+      if (arrival_constraint_satisfied && departure_constraint_satisfied)
       {
 
-        bool b_not_last_elem = b < (schedule_sol.blocks.size() - 1);
+        bool is_not_last_or_first_block = ((b != (init_schedule.blocks.size() - 1)) && (b != 0));
 
-        if (b_not_last_elem)
+        if (is_not_last_or_first_block && (move_current.first == "move_dt2" || move_current.first == "move_dt2_inv"))
         {
+          // std::cout << move_methods[m] << "\n";
+          find_optimal_trajectory_no_iter(
+              schedule_sol.blocks[b].satname,
+              schedule_sol.blocks[b + 1].satname,
+              schedule_sol.blocks[b].departure_time,
+              schedule_sol.blocks[b + 1].arrival_time,
+              simfile, DeltaVMinimaopt);
 
-          bool condition_add = ((move_current.first == "add departure") && (schedule_sol.blocks[b].departure_time < schedule_sol.blocks[b + 1].arrival_time));
-          bool condition_sub = ((move_current.first == "sub departure") && (departure_constraints[b] <= schedule_sol.blocks[b].departure_time));
+          schedule_sol.blocks[b + 1].deltaV_arrival = DeltaVMinimaopt;
 
-          if (condition_add || condition_sub)
+          if (DeltaVMinimaopt <= init_schedule.blocks[b + 1].deltaV_arrival)
           {
 
+            tabu_blocks.push_back(b + 1);
+          }
+
+          find_optimal_trajectory_no_iter(
+              schedule_sol.blocks[b - 1].satname,
+              schedule_sol.blocks[b].satname,
+              schedule_sol.blocks[b - 1].departure_time,
+              schedule_sol.blocks[b].arrival_time,
+              simfile, DeltaVMinimaopt);
+
+          schedule_sol.blocks[b].deltaV_arrival = DeltaVMinimaopt;
+        }
+
+        if ((move_current.first == "add departure") || (move_current.first == "sub departure"))
+        {
+
+          bool b_not_last_elem = b < (schedule_sol.blocks.size() - 1);
+
+          if (b_not_last_elem)
+          {
             // finding lowest energy lambert transfer for given tof
             find_optimal_trajectory_no_iter(
                 schedule_sol.blocks[b].satname,
@@ -135,18 +181,11 @@ void vn_search(double &init_deltaV, schedule_struct& init_schedule, std::vector<
             schedule_sol.blocks[b + 1].deltaV_arrival = DeltaVMinimaopt;
           }
         }
-      }
 
-      if ((move_current.first == "add arrival") || (move_current.first == "sub arrival"))
-      {
-
-        if (b > 0)
+        if ((move_current.first == "add arrival") || (move_current.first == "sub arrival"))
         {
 
-          bool condition_add = ((move_current.first == "add arrival") && (schedule_sol.blocks[b].arrival_time <= arrival_constraints[b]));
-          bool condition_sub = ((move_current.first == "sub arrival") && (schedule_sol.blocks[b - 1].departure_time < schedule_sol.blocks[b].arrival_time));
-
-          if (condition_add || condition_sub)
+          if (b > 0)
           {
 
             find_optimal_trajectory_no_iter(
@@ -159,7 +198,6 @@ void vn_search(double &init_deltaV, schedule_struct& init_schedule, std::vector<
           }
         }
       }
-
       list_of_schedules.push_back(schedule_sol);
 
       // closes for loop over the whole schedule
@@ -189,39 +227,34 @@ void vn_search(double &init_deltaV, schedule_struct& init_schedule, std::vector<
     // if no improvement is found, then stop
     if (neighbourhood_minima >= deltaVminima_so_far)
     {
-        
-        
-        move_choice += 4; 
-        /*
-        //std::cout <<"step = "<<random_step << std::endl;
+      move_choice += 1;
+      if (move_choice >= (possible_moves.size() - 1))
+      {
+        move_choice -= move_choice;
+        move_choice += 1;
+      }
 
-        // we need to wrap around the max array len 
-        
+      /*
+      //std::cout <<"step = "<<random_step << std::endl;
 
-        if(temp <= (random_step/(double)possible_moves.size()) ){
+      // we need to wrap around the max array len
 
-        move_choice += random_step; 
-        move_choice = move_choice % (possible_moves.size()-1);
-        
-        }*/
-        
-        double move_random = dist(gen); 
 
-        decay *=0.70;
+      if(temp <= (random_step/(double)possible_moves.size()) ){
 
-        if (move_random < decay){
-        
-        int index_minima = find_minima_index(deltaVs_of_neighbourhood);
+      move_choice += random_step;
+      move_choice = move_choice % (possible_moves.size()-1);
 
-        deltaVminima_so_far = std::abs(neighbourhood_minima);
-        init_schedule = list_of_schedules[index_minima];
+      }*/
 
-        //move_choice +=1;
-        
-        } 
-           
+      // double move_choice = dist(gen);
 
-        
+      int index_minima = find_minima_index(deltaVs_of_neighbourhood);
+
+      // deltaVminima_so_far = std::abs(neighbourhood_minima);
+      // init_schedule = list_of_schedules[index_minima];
+
+      // move_choice +=1;
     }
 
     else
@@ -236,7 +269,6 @@ void vn_search(double &init_deltaV, schedule_struct& init_schedule, std::vector<
     }
 
   } // closes while
-
 }
 
 void run_vn_search(DataFrame simfile, std::vector<double> move_size,
@@ -273,3 +305,59 @@ void run_vn_search(DataFrame simfile, std::vector<double> move_size,
 
   std::cout << "Total Delta V: " << deltaV_of_schedule << "\n";
 }
+
+
+
+
+
+void run_vn_search_fixed_tarrive(   DataFrame simfile, std::vector<double> move_size,
+                                    std::vector<std::string> moves_to_consider,
+                                    std::vector<std::string> sat_names_in_schedule,
+                                    std::vector<double> t_depart, std::vector<double> t_arrive,
+                                    double &deltaV_of_schedule, double service_time, int max_iter)
+{
+
+  // construct initial schedule using provided departure and arrival times
+  schedule_struct init_schedule = create_schedule_lambert_only( deltaV_of_schedule, t_arrive, t_depart,sat_names_in_schedule, simfile, service_time );
+
+  // divide the schedule into chunks of 2 and run vns on each block
+  double pair_deltaV = 0; 
+
+  for(int b = 1 ; b < init_schedule.blocks.size() ; b++){ 
+
+    schedule_struct pair_to_pass; 
+    pair_to_pass.blocks.push_back(init_schedule.blocks[b-1]);
+    pair_to_pass.blocks.push_back(init_schedule.blocks[b]); 
+    
+    pair_deltaV = init_schedule.blocks[b-1].deltaV_arrival +  init_schedule.blocks[b].deltaV_arrival ; 
+
+    // since we will have n-1 transfers to consider for n blocks we give each transfer max_iter/(size-1) 
+    vn_search(pair_deltaV, pair_to_pass, move_size, simfile, service_time, moves_to_consider, (max_iter/((int)init_schedule.blocks.size() - 1)));
+    
+
+    init_schedule.blocks[b-1] = pair_to_pass.blocks[0];
+    init_schedule.blocks[b] = pair_to_pass.blocks[1];  
+    
+    }
+
+  double deltav_of_full_schedule = 0; 
+
+  for(task_block bl : init_schedule.blocks){
+    
+      deltav_of_full_schedule += bl.deltaV_arrival; 
+
+  }  
+    
+  deltaV_of_schedule = deltav_of_full_schedule; 
+  
+
+  view_schedule(init_schedule); 
+
+  std::cout << "Total Delta V: " << deltaV_of_schedule << "\n";
+}
+
+
+
+
+
+
