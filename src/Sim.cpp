@@ -75,14 +75,6 @@ void show_orb_elems(DataFrame &simfile, std::vector<std::string> &sats_in_demand
   }
 }
 
-
-
-
-
-
-
-
-
 int main(int argc, char *argv[])
 {
 
@@ -95,16 +87,14 @@ int main(int argc, char *argv[])
   double inclination_in_deg = 56;
   double inclinationDiff_in_deg = 2;
 
-  run_simulation("WalkerDelta.csv", "walker_delta", 400000, 10,
+  run_simulation("WalkerDelta.csv", "walker_delta", 150000, 10,
                  altitude_m, num_planes, num_satellites, relative_phase,
                  deg_to_rads(inclination_in_deg), 1.0, deg_to_rads(inclinationDiff_in_deg));
 
   std::cout << "finished running sim" << "\n";
 
   std::cout << "------------------Running Local Search---------------------" << std::endl;
-  
 
-  /*
   // Setting up an initial schedule
   DataFrame simfile("../data/WalkerDelta.csv");
 
@@ -149,34 +139,27 @@ int main(int argc, char *argv[])
                 deltaV_of_schedule_heuristic, service_time, 400);
 
   std::cout << "VNS Delta V : " << deltaV_of_schedule_heuristic << "\n";
-  */
-
-  // Experiment to time the execution of the exact method. 
 
   std::cout << "------------------Running Exact Method---------------------" << std::endl;
 
-  
+  /*
   double initdeltavDP;
   DataFrame simfile("../data/WalkerDelta.csv");
 
   std::vector<std::string> satnames = simfile["name"];
 
-  std::vector<int> num_sat_visits_arr = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12};
+  std::vector<int> num_sat_visits_arr = {1, 2, 3, 4, 5, 6, 7, 8};
 
   std::vector<std::chrono::duration<double, std::milli>> scalingts;
 
   for (int v : num_sat_visits_arr)
   {
     int num_sat_visits = v;
-    int t_final_i = 350000 * v/12;
-    t_final_i = t_final_i - (t_final_i % 100);
-        
-    double t_final = t_final_i;  
-
+    double t_final = 150000 * v / 8 - (150000 * v / 8 % 100);
     double service_time = 1000;
-    std::cout << "t_final: "<< t_final << "\n"; 
+
     std::string depot_name = "service_1";
-    std::vector<std::string> client_satnames = {"sat_0", "sat_3", "sat_10", "sat_1", "sat_4", "sat_12", "sat_15", "sat_20", "sat_14", "sat_18", "sat_3", "sat_5", "sat_1"};
+    std::vector<std::string> client_satnames = {"sat_0", "sat_3", "sat_10", "sat_1", "sat_4", "sat_12", "sat_15", "sat_20", "sat_14", "sat_18"};
 
     // initializing init schedule
     std::vector<double> t_depart;
@@ -189,9 +172,7 @@ int main(int argc, char *argv[])
 
     auto start = std::chrono::high_resolution_clock::now();
 
-    //double deltaVoptimal_ex_search = run_es(schedule_init);
-
-    int ret = dynamic_program_fixed_tasksize_Tfixed(schedule_init, 100, 1,schedule_init.blocks.size()-1, t_final,simfile);
+    double deltaVoptimal_ex_search = run_es(schedule_init);
 
     auto end = std::chrono::high_resolution_clock::now();
 
@@ -203,8 +184,9 @@ int main(int argc, char *argv[])
 
     scalingts.push_back(duration);
 
-  } 
+  }
 
+  */
 
   // std::cout << "Exact method DeltaV: " << deltaVoptimal_ex_search << "\n";
   // std::cout << "Gap : " << std::abs(deltaV_of_schedule_heuristic - deltaVoptimal_ex_search) / deltaVoptimal_ex_search * 100 << " %" << "\n";
