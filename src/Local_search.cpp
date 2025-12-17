@@ -926,8 +926,8 @@ schedule_struct run_local_search(DataFrame simfile, std::vector<double> move_siz
   std::cout << "Total Delta V: " << deltaV_of_schedule;
 
   // Now the optimal schedule is calculated using local search
-  schedule_struct findopt_schedule = local_search_opt_schedule_lambert_only_late_acceptance(deltaV_of_schedule, init_schedule, move_size,
-                                                                                            simfile, service_time, moves_to_consider);
+  schedule_struct findopt_schedule = local_search_opt_schedule_lambert_only(deltaV_of_schedule, init_schedule, move_size,
+                                                                            simfile, service_time, moves_to_consider);
 
   std::cout << "\n";
 
@@ -966,20 +966,22 @@ schedule_struct run_local_search_tfixed(DataFrame simfile, std::vector<double> m
   // divide the schedule into chunks of 2 and run local search on each block
   double pair_deltaV = 0;
 
-  for (int b = 1; b < init_schedule.blocks.size(); b++)
+  for (int b = 1; b+1 < init_schedule.blocks.size(); b++)
   {
 
     schedule_struct pair_to_pass;
     pair_to_pass.blocks.push_back(init_schedule.blocks[b - 1]);
     pair_to_pass.blocks.push_back(init_schedule.blocks[b]);
+    pair_to_pass.blocks.push_back(init_schedule.blocks[b+1]);
 
-    pair_deltaV = init_schedule.blocks[b - 1].deltaV_arrival + init_schedule.blocks[b].deltaV_arrival;
+    pair_deltaV = init_schedule.blocks[b - 1].deltaV_arrival + init_schedule.blocks[b].deltaV_arrival + init_schedule.blocks[b+1].deltaV_arrival;
 
     schedule_struct findopt_schedule = local_search_opt_schedule_lambert_only(pair_deltaV, pair_to_pass, move_size,
                                                                               simfile, service_time, moves_to_consider);
 
     init_schedule.blocks[b - 1] = findopt_schedule.blocks[0];
     init_schedule.blocks[b] = findopt_schedule.blocks[1];
+    init_schedule.blocks[b+1] = findopt_schedule.blocks[2];
     view_schedule(init_schedule);
   }
 
@@ -1013,7 +1015,7 @@ int find_first_index_less_than(const std::vector<double> &v, double x)
     if (v[i] < x)
       return static_cast<int>(i);
   }
-  return -1; // not found
+  return 0; // not found
 }
 
 schedule_struct local_search_opt_schedule_lambert_only_late_acceptance(double &init_deltaV, schedule_struct init_schedule, std::vector<double> dt_move,

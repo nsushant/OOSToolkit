@@ -101,8 +101,8 @@ int main(int argc, char *argv[])
   std::vector<std::string> satnames = simfile["name"];
 
   // inputs to generate initial schedule
-  int num_sat_visits = 3;
-  double t_final = 50000;
+  int num_sat_visits = 9;
+  double t_final = 150000;
   double service_time = 1000;
 
   std::string depot_name = "service_1";
@@ -122,13 +122,13 @@ int main(int argc, char *argv[])
   // Running Local Search
 
   // ideal case (1 percent convergence)
-  std::vector<double> move_size = {6000, 5000, 4000, 3500, 3000, 2000, 1500, 1000, 500, 100}; //, 200, 400, 500, 600, 700, 1000, 1500, 2000, 2500, 2700, 3000};
+  std::vector<double> move_size = {15000,10000,9000,8000,6000,5000, 4000, 3500, 3000, 2000, 1500, 1000, 500, 100}; //, 200, 400, 500, 600, 700, 1000, 1500, 2000, 2500, 2700, 3000};
   // formulation 1
   std::vector<std::string> moves_to_consider = {"add departure", "sub arrival", "sub departure", "add arrival", "move_sub_traj", "move_add_traj"}; //, "move_dt2", "move_dt2_inv"};
 
   // run_local_search_tfixed
 
-  schedule_struct ls = run_local_search(simfile, move_size, moves_to_consider,
+  schedule_struct ls = run_local_search_tfixed(simfile, move_size, moves_to_consider,
                                         sat_names_in_schedule, t_depart, t_arrive,
                                         deltaV_of_schedule_heuristic, service_time);
 
