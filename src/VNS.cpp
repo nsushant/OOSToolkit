@@ -74,13 +74,12 @@ void vn_search(double &init_deltaV, schedule_struct &init_schedule, std::vector<
 
   // std::random_device rd;                       // non-deterministic seed
   // std::mt19937 gen(rd());                      // Mersenne Twister RNG
-                                               //
-  //std::uniform_real_distribution<> dist(0, 1); // range [1, 100]
+  //
+  // std::uniform_real_distribution<> dist(0, 1); // range [1, 100]
 
-  std::random_device rd;                        // Seed source
-  std::mt19937 gen(rd());                       // Mersenne Twister RNG
-  std::bernoulli_distribution drop(0.40);       // 40% chance of "true"
-
+  std::random_device rd;                  // Seed source
+  std::mt19937 gen(rd());                 // Mersenne Twister RNG
+  std::bernoulli_distribution drop(0.40); // 40% chance of "true"
 
   double decay = 0.9;
 
@@ -88,23 +87,22 @@ void vn_search(double &init_deltaV, schedule_struct &init_schedule, std::vector<
 
   while (iterval < max_iter)
   {
-    // drop the move 40 % of the time 
-    
+    // drop the move 40 % of the time
+
     // A drop seems to sway the results farther away from the minima
 
     /*if (drop(gen))
-    { 
+    {
        move_choice += 1;
-       
+
        if (move_choice >= (possible_moves.size() - 1))
        {
         move_choice -= move_choice;
         move_choice += 1;
        }
 
-        continue; 
+        continue;
     }*/
-
 
     temp *= 0.6;
     iterval += 1;
@@ -117,8 +115,7 @@ void vn_search(double &init_deltaV, schedule_struct &init_schedule, std::vector<
 
     // loop over all moves
     for (int b = 0; b < init_schedule.blocks.size(); b++)
-    {   
-
+    {
 
       schedule_struct schedule_sol = init_schedule;
 
@@ -306,58 +303,46 @@ void run_vn_search(DataFrame simfile, std::vector<double> move_size,
   std::cout << "Total Delta V: " << deltaV_of_schedule << "\n";
 }
 
-
-
-
-
-void run_vn_search_fixed_tarrive(   DataFrame simfile, std::vector<double> move_size,
-                                    std::vector<std::string> moves_to_consider,
-                                    std::vector<std::string> sat_names_in_schedule,
-                                    std::vector<double> t_depart, std::vector<double> t_arrive,
-                                    double &deltaV_of_schedule, double service_time, int max_iter)
+void run_vn_search_fixed_tarrive(DataFrame simfile, std::vector<double> move_size,
+                                 std::vector<std::string> moves_to_consider,
+                                 std::vector<std::string> sat_names_in_schedule,
+                                 std::vector<double> t_depart, std::vector<double> t_arrive,
+                                 double &deltaV_of_schedule, double service_time, int max_iter)
 {
 
   // construct initial schedule using provided departure and arrival times
-  schedule_struct init_schedule = create_schedule_lambert_only( deltaV_of_schedule, t_arrive, t_depart,sat_names_in_schedule, simfile, service_time );
+  schedule_struct init_schedule = create_schedule_lambert_only(deltaV_of_schedule, t_arrive, t_depart, sat_names_in_schedule, simfile, service_time);
 
   // divide the schedule into chunks of 2 and run vns on each block
-  double pair_deltaV = 0; 
+  double pair_deltaV = 0;
 
-  for(int b = 1 ; b < init_schedule.blocks.size() ; b++){ 
+  for (int b = 1; b < init_schedule.blocks.size(); b++)
+  {
 
-    schedule_struct pair_to_pass; 
-    pair_to_pass.blocks.push_back(init_schedule.blocks[b-1]);
-    pair_to_pass.blocks.push_back(init_schedule.blocks[b]); 
-    
-    pair_deltaV = init_schedule.blocks[b-1].deltaV_arrival +  init_schedule.blocks[b].deltaV_arrival ; 
+    schedule_struct pair_to_pass;
+    pair_to_pass.blocks.push_back(init_schedule.blocks[b - 1]);
+    pair_to_pass.blocks.push_back(init_schedule.blocks[b]);
 
-    // since we will have n-1 transfers to consider for n blocks we give each transfer max_iter/(size-1) 
-    vn_search(pair_deltaV, pair_to_pass, move_size, simfile, service_time, moves_to_consider, (max_iter/((int)init_schedule.blocks.size() - 1)));
-    
+    pair_deltaV = init_schedule.blocks[b - 1].deltaV_arrival + init_schedule.blocks[b].deltaV_arrival;
 
-    init_schedule.blocks[b-1] = pair_to_pass.blocks[0];
-    init_schedule.blocks[b] = pair_to_pass.blocks[1];  
-    
-    }
+    // since we will have n-1 transfers to consider for n blocks we give each transfer max_iter/(size-1)
+    vn_search(pair_deltaV, pair_to_pass, move_size, simfile, service_time, moves_to_consider, (max_iter / ((int)init_schedule.blocks.size() - 1)));
 
-  double deltav_of_full_schedule = 0; 
+    init_schedule.blocks[b - 1] = pair_to_pass.blocks[0];
+    init_schedule.blocks[b] = pair_to_pass.blocks[1];
+  }
 
-  for(task_block bl : init_schedule.blocks){
-    
-      deltav_of_full_schedule += bl.deltaV_arrival; 
+  double deltav_of_full_schedule = 0;
 
-  }  
-    
-  deltaV_of_schedule = deltav_of_full_schedule; 
-  
+  for (task_block bl : init_schedule.blocks)
+  {
 
-  view_schedule(init_schedule); 
+    deltav_of_full_schedule += bl.deltaV_arrival;
+  }
+
+  deltaV_of_schedule = deltav_of_full_schedule;
+
+  view_schedule(init_schedule);
 
   std::cout << "Total Delta V: " << deltaV_of_schedule << "\n";
 }
-
-
-
-
-
-

@@ -81,3 +81,13 @@ schedule_struct run_local_search(DataFrame simfile, std::vector<double> move_siz
                                  std::vector<std::string> sat_names_in_schedule,
                                  std::vector<double> t_depart, std::vector<double> t_arrive,
                                  double &deltaV_of_schedule, double service_time);
+schedule_struct run_local_search_tfixed(DataFrame simfile, std::vector<double> move_size,
+                                        std::vector<std::string> moves_to_consider,
+                                        std::vector<std::string> sat_names_in_schedule,
+                                        std::vector<double> t_depart, std::vector<double> t_arrive,
+                                        double &deltaV_of_schedule, double service_time);
+
+int find_first_index_less_than(const std::vector<double> &v, double x);
+
+schedule_struct local_search_opt_schedule_lambert_only_late_acceptance(double &init_deltaV, schedule_struct init_schedule, std::vector<double> dt_move,
+                                                                       DataFrame simfile, double service_time, std::vector<std::string> move_methods);

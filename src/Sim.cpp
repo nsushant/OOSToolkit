@@ -19,7 +19,7 @@
 #include "data_access_lib.hpp"
 #include "Exact_methods.hpp"
 #include "Simulated_Annealing.hpp"
-#include "VNS.cpp"
+#include "VNS.hpp"
 
 double run_es(schedule_struct &sched_in)
 {
@@ -122,23 +122,25 @@ int main(int argc, char *argv[])
   // Running Local Search
 
   // ideal case (1 percent convergence)
-  std::vector<double> move_size = {4000,3500, 3000, 2000, 1500, 1000,500, 100}; //, 200, 400, 500, 600, 700, 1000, 1500, 2000, 2500, 2700, 3000};
+  std::vector<double> move_size = {6000, 5000, 4000, 3500, 3000, 2000, 1500, 1000, 500, 100}; //, 200, 400, 500, 600, 700, 1000, 1500, 2000, 2500, 2700, 3000};
   // formulation 1
-  std::vector<std::string> moves_to_consider = {"add departure", "add arrival"  ,"sub departure", "sub arrival"}; //, "move_dt2", "move_dt2_inv"};
+  std::vector<std::string> moves_to_consider = {"add departure", "sub arrival", "sub departure", "add arrival", "move_sub_traj", "move_add_traj"}; //, "move_dt2", "move_dt2_inv"};
 
-  //schedule_struct ls = run_local_search(simfile, move_size, moves_to_consider,
-    //                                   sat_names_in_schedule, t_depart, t_arrive,
-      //                              deltaV_of_schedule_heuristic, service_time);
+  // run_local_search_tfixed
 
-  // view_schedule(ls);
+  schedule_struct ls = run_local_search(simfile, move_size, moves_to_consider,
+                                        sat_names_in_schedule, t_depart, t_arrive,
+                                        deltaV_of_schedule_heuristic, service_time);
+
+  view_schedule(ls);
 
   // vn_search(deltaV_of_schedule_init, ls, move_size,simfile, service_time, moves_to_consider, 500);
 
-  run_vn_search_fixed_tarrive(simfile, move_size, moves_to_consider,
-                sat_names_in_schedule, t_depart, t_arrive,
-                deltaV_of_schedule_heuristic, service_time, 400);
+  // run_vn_search_fixed_tarrive(simfile, move_size, moves_to_consider,
+  //             sat_names_in_schedule, t_depart, t_arrive,
+  //           deltaV_of_schedule_heuristic, service_time, 400);
 
-  std::cout << "VNS Delta V : " << deltaV_of_schedule_heuristic << "\n";
+  std::cout << "Heuristic Delta V : " << deltaV_of_schedule_heuristic << "\n";
 
   std::cout << "------------------Running Exact Method---------------------" << std::endl;
 
@@ -187,9 +189,14 @@ int main(int argc, char *argv[])
   }
 
   */
+  double initdeltavDP;
 
-  // std::cout << "Exact method DeltaV: " << deltaVoptimal_ex_search << "\n";
-  // std::cout << "Gap : " << std::abs(deltaV_of_schedule_heuristic - deltaVoptimal_ex_search) / deltaVoptimal_ex_search * 100 << " %" << "\n";
+  schedule_struct schedule_init = create_schedule_lambert_only(initdeltavDP, t_arrive, t_depart, sat_names_in_schedule, simfile, service_time);
+
+  double deltaVoptimal_ex_search = run_es(schedule_init);
+
+  std::cout << "Exact method DeltaV: " << deltaVoptimal_ex_search << "\n";
+  std::cout << "Gap : " << std::abs(deltaV_of_schedule_heuristic - deltaVoptimal_ex_search) / deltaVoptimal_ex_search * 100 << " %" << "\n";
 
   // int ret = dynamic_program_fixed_tasksize_Tfixed(schedule_init, 100, 1,schedule_init.blocks.size()-1, 70000,simfile);
 
