@@ -115,7 +115,7 @@ void move_dt2_inv(std::vector<task_block> &blocks, int b_index, double dt)
   if (b_index > 0)
   {
 
-    if (blocks[b_index].arrival_time + dt < blocks[b_index].arrival_constraint)
+    if (blocks[b_index].arrival_time + dt <= blocks[b_index].arrival_constraint)
     {
 
       blocks[b_index].arrival_time += dt;
@@ -134,7 +134,7 @@ void move_dt2_inv(std::vector<task_block> &blocks, int b_index, double dt)
       blocks[b_index].departure_time += 0;
     }
 
-    else if (blocks[b_index].departure_time - dt > blocks[b_index].arrival_constraint + blocks[b_index].service_duration)
+    else if (blocks[b_index].departure_time - dt >= blocks[b_index].arrival_constraint + blocks[b_index].service_duration)
     {
       blocks[b_index].departure_time -= dt;
     }
@@ -149,7 +149,7 @@ void move_add_arrival(std::vector<task_block> &blocks, int b_index, double dt)
   {
 
     // ensure that the addition in arrival time does not make arrival occur after the departure time
-    if ((blocks[b_index].arrival_time + dt) < blocks[b_index].arrival_constraint)
+    if ((blocks[b_index].arrival_time + dt) <= blocks[b_index].arrival_constraint)
     {
 
       blocks[b_index].arrival_time += dt;
@@ -157,10 +157,6 @@ void move_add_arrival(std::vector<task_block> &blocks, int b_index, double dt)
 
     // since the departure time of the last block is 0
 
-    else if (b_index == (blocks.size() - 1))
-    {
-      blocks[b_index].arrival_time += 0;
-    }
   }
 }
 void move_add_departure(std::vector<task_block> &blocks, int b_index,
@@ -168,7 +164,7 @@ void move_add_departure(std::vector<task_block> &blocks, int b_index,
 {
 
   // for all but the second to last block
-  if (b_index < (blocks.size() - 1))
+  if (b_index + 1 < blocks.size())
   {
 
     // make sure the shuttle departs before the next expected arrival
@@ -186,7 +182,7 @@ void move_sub_departure(std::vector<task_block> &blocks, int b_index,
 {
 
   // for all but the last block
-  if (b_index < (blocks.size() - 1))
+  if (b_index + 1 < blocks.size())
   {
 
     if (blocks[b_index].departure_time - dt >= (blocks[b_index].arrival_constraint + blocks[b_index].service_duration))
@@ -655,7 +651,9 @@ schedule_struct local_search_opt_schedule_lambert_only(double &init_deltaV, sche
                                                (schedule_sol.blocks[b].arrival_time <= schedule_sol.blocks[b].arrival_constraint) &&
                                                (schedule_sol.blocks[b].arrival_time > schedule_sol.blocks[b - 1].departure_time));
 
-          bool departure_constraint_satisfied = ((b + 1 < init_schedule.blocks.size()) && (schedule_sol.blocks[b].departure_time > schedule_sol.blocks[b].arrival_constraint + schedule_sol.blocks[b].service_duration) && (schedule_sol.blocks[b].departure_time < schedule_sol.blocks[b + 1].arrival_time));
+          bool departure_constraint_satisfied = ((b + 1 < init_schedule.blocks.size()) && 
+              (schedule_sol.blocks[b].departure_time >= schedule_sol.blocks[b].arrival_constraint + schedule_sol.blocks[b].service_duration) 
+              && (schedule_sol.blocks[b].departure_time < schedule_sol.blocks[b + 1].arrival_time));
 
           // if the schedule created by the move is feasible
           if (arrival_constraint_satisfied && departure_constraint_satisfied)
@@ -966,22 +964,22 @@ schedule_struct run_local_search_tfixed(DataFrame simfile, std::vector<double> m
   // divide the schedule into chunks of 2 and run local search on each block
   double pair_deltaV = 0;
 
-  for (int b = 1; b+1 < init_schedule.blocks.size(); b++)
+  for (int b = 1; b < init_schedule.blocks.size(); b++)
   {
 
     schedule_struct pair_to_pass;
     pair_to_pass.blocks.push_back(init_schedule.blocks[b - 1]);
     pair_to_pass.blocks.push_back(init_schedule.blocks[b]);
-    pair_to_pass.blocks.push_back(init_schedule.blocks[b+1]);
+    //pair_to_pass.blocks.push_back(init_schedule.blocks[b+1]);
 
-    pair_deltaV = init_schedule.blocks[b - 1].deltaV_arrival + init_schedule.blocks[b].deltaV_arrival + init_schedule.blocks[b+1].deltaV_arrival;
+    pair_deltaV = init_schedule.blocks[b - 1].deltaV_arrival + init_schedule.blocks[b].deltaV_arrival ; //+ init_schedule.blocks[b+1].deltaV_arrival;
 
     schedule_struct findopt_schedule = local_search_opt_schedule_lambert_only(pair_deltaV, pair_to_pass, move_size,
                                                                               simfile, service_time, moves_to_consider);
 
     init_schedule.blocks[b - 1] = findopt_schedule.blocks[0];
     init_schedule.blocks[b] = findopt_schedule.blocks[1];
-    init_schedule.blocks[b+1] = findopt_schedule.blocks[2];
+    //init_schedule.blocks[b+1] = findopt_schedule.blocks[2];
     view_schedule(init_schedule);
   }
 
@@ -1018,9 +1016,10 @@ int find_first_index_less_than(const std::vector<double> &v, double x)
   return 0; // not found
 }
 
-schedule_struct local_search_opt_schedule_lambert_only_late_acceptance(double &init_deltaV, schedule_struct init_schedule, std::vector<double> dt_move,
+schedule_struct local_search_opt_schedule_lambert_only_late_acceptance(double &init_deltaV, schedule_struct init_schedule, std::vector<double> wasterarray,
                                                                        DataFrame simfile, double service_time, std::vector<std::string> move_methods)
 {
+
 
   double deltaVminima_so_far = init_deltaV;
 
@@ -1048,6 +1047,8 @@ schedule_struct local_search_opt_schedule_lambert_only_late_acceptance(double &i
 
     for (int m = 0; m < move_methods.size(); m++)
     {
+      std::vector<double> dt_move; 
+
       for (int d = 0; d < dt_move.size(); d++)
       {
         for (int b = 0; b < init_schedule.blocks.size(); b++)
@@ -1061,7 +1062,6 @@ schedule_struct local_search_opt_schedule_lambert_only_late_acceptance(double &i
 
           if ((schedule_sol.blocks[b].departure_time == init_schedule.blocks[b].departure_time) && (schedule_sol.blocks[b].arrival_time == init_schedule.blocks[b].arrival_time))
           {
-
             continue;
           }
 

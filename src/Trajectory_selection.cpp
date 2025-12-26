@@ -204,24 +204,33 @@ void find_optimal_trajectory(std::string service_satname, std::string client_sat
                 double v_depot_edelbaum = arma::norm(v_service_loop);
                 double v_client_edelbaum = arma::norm(v_client_loop);
 
-                double i_from = get_inclination(r_service, v_service_loop);
-                double i_to = get_inclination(r_client_loop, v_client_loop);
+                //double i_from = get_inclination(r_service, v_service_loop);
+                //double i_to = get_inclination(r_client_loop, v_client_loop);
 
-                double plane_diff_angle = std::abs(i_from - i_to);
+                //double plane_diff_angle = std::abs(i_from - i_to);
+                
+                double deltaVedelbaum = calculate_edelbaum_deltaV(v_service_loop, v_client_loop, r_service, r_client_loop);
 
-                double deltaVedelbaum = calculate_edelbaum_deltaV(v_depot_edelbaum, v_client_edelbaum, plane_diff_angle);
+                DeltaVMinima = deltaVedelbaum;
 
-                if ((sols_tot > 1) && (deltaVedelbaum < DeltaVMinima))
-                {
+                //double deltaVedelbaum = calculate_edelbaum_deltaV(v_service_loop, v_client_loop, r_service, r_client_loop);
 
-                    DeltaVMinima = deltaVedelbaum;
-                }
+                //double deltaVedelbaum = calculate_edelbaum_deltaV(v_depot_edelbaum, v_client_edelbaum, plane_diff_angle);
 
-                else if (sols_tot == 1)
-                {
 
-                    DeltaVMinima = deltaVedelbaum;
-                }
+                //DeltaVMinima = deltaVedelbaum;
+
+                //if ((sols_tot > 1) && (deltaVedelbaum < DeltaVMinima))
+                //{
+
+                //                    DeltaVMinima = deltaVedelbaum;
+                //}
+
+                //else if (sols_tot == 1)
+                //{
+
+                  //  DeltaVMinima = deltaVedelbaum;
+                //}
             }
         }
 
@@ -356,8 +365,14 @@ void find_optimal_trajectory_no_iter(std::string service_satname, std::string cl
 
     int revmax = std::floor(tof_largest / period);
 
-    std::vector<arma::vec> sols = lambert_solver(r_service, r_client, tof_largest, MU_EARTH, 0, revmax);
+    //std::vector<arma::vec> sols = lambert_solver(r_service, r_client, tof_largest, MU_EARTH, 0, 100);
 
+
+    double deltaVedelbaum = calculate_edelbaum_deltaV(v_service, v_client, r_service, r_client);
+
+    DeltaVMinima = deltaVedelbaum;
+    
+    /*
     double deltaVsols = -1 * pow(10, 9);
 
     for (int sol = 0; sol < sols.size(); sol++)
@@ -386,9 +401,9 @@ void find_optimal_trajectory_no_iter(std::string service_satname, std::string cl
 
             deltaVsols = deltaTotal;
         }
-    }
+    }*/
 
-    DeltaVMinima = deltaVsols;
+    //DeltaVMinima = deltaVsols;
 }
 
 void run_exhaustive_search(std::string sat_from, std::string sat_to, double t_from, double t_to, double &deltaV_change, std::string simfilename, std::string outputfilename, std::string method)

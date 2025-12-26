@@ -31,7 +31,7 @@ double run_es(schedule_struct &sched_in)
     task_block fromblock = sched_in.blocks[i - 1];
     task_block toblock = sched_in.blocks[i];
 
-    run_exhaustive_search(fromblock.satname, toblock.satname, fromblock.departure_time, toblock.arrival_constraint, DeltaVchange, "WalkerDelta.csv", "", "lambert");
+    run_exhaustive_search(fromblock.satname, toblock.satname, fromblock.departure_time, toblock.arrival_constraint, DeltaVchange, "WalkerDelta.csv", "", "edelbaum");
     std::cout << "\n";
   }
 
@@ -87,7 +87,7 @@ int main(int argc, char *argv[])
   double inclination_in_deg = 56;
   double inclinationDiff_in_deg = 2;
 
-  run_simulation("WalkerDelta.csv", "walker_delta", 150000, 10,
+  run_simulation("WalkerDelta.csv", "walker_delta", 550000, 10,
                  altitude_m, num_planes, num_satellites, relative_phase,
                  deg_to_rads(inclination_in_deg), 1.0, deg_to_rads(inclinationDiff_in_deg));
 
@@ -101,8 +101,8 @@ int main(int argc, char *argv[])
   std::vector<std::string> satnames = simfile["name"];
 
   // inputs to generate initial schedule
-  int num_sat_visits = 9;
-  double t_final = 150000;
+  int num_sat_visits = 3;
+  double t_final = 50000;
   double service_time = 1000;
 
   std::string depot_name = "service_1";
