@@ -4,21 +4,31 @@ import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 from mpl_toolkits.mplot3d import Axes3D  # needed for 3D plotting
 import os 
+import argparse
+import sys
 
-# Load Data
+def load_data(csv_path):
+    """Load data from CSV file"""
+    print("Loading:", csv_path)
+    try:
+        df = pd.read_csv(csv_path)
+        return df
+    except Exception as e:
+        print(f"Error loading {csv_path}: {e}")
+        sys.exit(1)
 
-# Folder of the current script 
-this_dir = os.path.dirname(os.path.abspath(__file__))
+# Get data path from command line or use default
+if len(sys.argv) > 1:
+    csv_path = sys.argv[1]
+else:
+    # Folder of the current script 
+    this_dir = os.path.dirname(os.path.abspath(__file__))
+    # Project root 
+    root = os.path.dirname(this_dir)
+    # Path to data 
+    csv_path = os.path.join(root, "data", "WalkerDelta.csv")
 
-# Project root 
-root = os.path.dirname(this_dir)
-
-# Path to data 
-data_path = os.path.join(root, "data", "WalkerDelta.csv")
-
-print("Loading:", data_path)
-
-df = pd.read_csv(data_path)
+df = load_data(csv_path)
 
 # Get satellite info
 satellites = df['name'].unique()

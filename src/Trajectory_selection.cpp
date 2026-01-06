@@ -363,16 +363,22 @@ void find_optimal_trajectory_no_iter(std::string service_satname, std::string cl
     // the number of possible revolutions is
     double tof_largest = t_client_arrival - t_service_departure;
 
+    // Add time of flight validation - focus on numerical issues only (allow weeks-long missions)
+    if (tof_largest <= 0 || tof_largest > 1e15 || std::isnan(tof_largest) || std::isinf(tof_largest)) {
+        std::cout << "Invalid time of flight detected: " << tof_largest << ", returning high deltaV penalty" << std::endl;
+        DeltaVMinima = 1e10; // Large penalty value
+        return;
+    }
+
     int revmax = std::floor(tof_largest / period);
 
-    //std::vector<arma::vec> sols = lambert_solver(r_service, r_client, tof_largest, MU_EARTH, 0, 100);
+    std::vector<arma::vec> sols = lambert_solver(r_service, r_client, tof_largest, MU_EARTH, 0, 100);
 
 
-    double deltaVedelbaum = calculate_edelbaum_deltaV(v_service, v_client, r_service, r_client);
+    //double deltaVedelbaum = calculate_edelbaum_deltaV(v_service, v_client, r_service, r_client);
 
-    DeltaVMinima = deltaVedelbaum;
+    //DeltaVMinima = deltaVedelbaum;
     
-    /*
     double deltaVsols = -1 * pow(10, 9);
 
     for (int sol = 0; sol < sols.size(); sol++)
@@ -401,9 +407,9 @@ void find_optimal_trajectory_no_iter(std::string service_satname, std::string cl
 
             deltaVsols = deltaTotal;
         }
-    }*/
+    }
 
-    //DeltaVMinima = deltaVsols;
+    DeltaVMinima = deltaVsols;
 }
 
 void run_exhaustive_search(std::string sat_from, std::string sat_to, double t_from, double t_to, double &deltaV_change, std::string simfilename, std::string outputfilename, std::string method)

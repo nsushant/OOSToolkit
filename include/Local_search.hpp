@@ -89,5 +89,11 @@ schedule_struct run_local_search_tfixed(DataFrame simfile, std::vector<double> m
 
 int find_first_index_less_than(const std::vector<double> &v, double x);
 
+
+
+int find_max_index(std::vector<double> v);
+std::vector<size_t> argsort(const std::vector<double>& v); 
+double round_down_100 (double x);
+ 
 schedule_struct local_search_opt_schedule_lambert_only_late_acceptance(double &init_deltaV, schedule_struct init_schedule, std::vector<double> dt_move,
                                                                        DataFrame simfile, double service_time, std::vector<std::string> move_methods);

@@ -31,7 +31,7 @@ double run_es(schedule_struct &sched_in)
     task_block fromblock = sched_in.blocks[i - 1];
     task_block toblock = sched_in.blocks[i];
 
-    run_exhaustive_search(fromblock.satname, toblock.satname, fromblock.departure_time, toblock.arrival_constraint, DeltaVchange, "WalkerDelta.csv", "", "edelbaum");
+    run_exhaustive_search(fromblock.satname, toblock.satname, fromblock.departure_time, toblock.arrival_constraint, DeltaVchange, "WalkerDelta.csv", "", "lambert");
     std::cout << "\n";
   }
 
@@ -93,7 +93,7 @@ int main(int argc, char *argv[])
 
   std::cout << "finished running sim" << "\n";
 
-  std::cout << "------------------Running Local Search---------------------" << std::endl;
+  std::cout << "------------------Running Local Search---------------------" << std::endl; 
 
   // Setting up an initial schedule
   DataFrame simfile("../data/WalkerDelta.csv");
@@ -128,9 +128,9 @@ int main(int argc, char *argv[])
 
   // run_local_search_tfixed
 
-  schedule_struct ls = run_local_search_tfixed(simfile, move_size, moves_to_consider,
-                                        sat_names_in_schedule, t_depart, t_arrive,
-                                        deltaV_of_schedule_heuristic, service_time);
+  schedule_struct ls = run_local_search(  simfile, move_size, moves_to_consider,
+                                          sat_names_in_schedule, t_depart, t_arrive,
+                                          deltaV_of_schedule_heuristic, service_time);
 
   view_schedule(ls);
 
@@ -196,7 +196,7 @@ int main(int argc, char *argv[])
   double deltaVoptimal_ex_search = run_es(schedule_init);
 
   std::cout << "Exact method DeltaV: " << deltaVoptimal_ex_search << "\n";
-  std::cout << "Gap : " << std::abs(deltaV_of_schedule_heuristic - deltaVoptimal_ex_search) / deltaVoptimal_ex_search * 100 << " %" << "\n";
+  std::cout << "Gap : " << std::abs(deltaV_of_schedule_heuristic - deltaVoptimal_ex_search) / deltaVoptimal_ex_search * 100 << " % " << "\n";
 
   // int ret = dynamic_program_fixed_tasksize_Tfixed(schedule_init, 100, 1,schedule_init.blocks.size()-1, 70000,simfile);
 
