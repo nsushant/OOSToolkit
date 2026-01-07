@@ -1078,12 +1078,138 @@ schedule_struct local_search_opt_schedule_lambert_only_late_acceptance(double &i
 
   std::vector<double> maximums = {};
   
-
+  // Performance tracking variables
+  int iteration_count = 0;
+  int total_improvements = 0;
+  std::vector<double> iteration_deltaV_history;
+  double initial_deltaV = init_deltaV;
+  
+  // Simple block ignore list: vector of (blocknum, lifetime) pairs
+  std::vector<std::pair<int, int>> ignore_list;  // (block_index, lifetime)
+  
+  // Track which blocks were processed this iteration
+  std::vector<int> processed_blocks_this_iteration;
+  
+  // Random number generation
+  std::random_device rd;
+  std::mt19937 gen(rd());
+  
+  // Early constraint checking function
+  auto quick_feasibility_check = [](const schedule_struct& schedule, int b_index, 
+                                   const std::string& move_method, double dt) -> bool {
+    // 1. Basic time ordering
+    if (schedule.blocks[b_index].arrival_time >= schedule.blocks[b_index].departure_time) {
+        return false;
+    }
+    
+    // 2. Adjacent block conflicts
+    if (b_index > 0 && schedule.blocks[b_index].arrival_time <= schedule.blocks[b_index-1].departure_time) {
+        return false;
+    }
+    
+    if (b_index + 1 < schedule.blocks.size() && 
+        schedule.blocks[b_index].departure_time >= schedule.blocks[b_index+1].arrival_time) {
+        return false;
+    }
+    
+    // 3. Time window bounds
+    if (b_index > 0 && schedule.blocks[b_index].arrival_time > schedule.blocks[b_index].arrival_constraint) {
+        return false;
+    }
+    
+    // 4. Service duration constraint
+    if (b_index + 1 < schedule.blocks.size() && 
+        schedule.blocks[b_index].departure_time < schedule.blocks[b_index].arrival_constraint + schedule.blocks[b_index].service_duration) {
+        return false;
+    }
+    
+    return true;
+  };
+  
+// Weighted random step size generation function
+  auto generate_weighted_random_moves = [&](double largest_stepsize) -> std::vector<double> {
+    // Add temporal validation and bounds checking
+    if (largest_stepsize <= 0 || largest_stepsize > 1e15 || std::isnan(largest_stepsize) || std::isinf(largest_stepsize)) {
+      std::cout << "Invalid step size detected: " << largest_stepsize << ", using safe default" << std::endl;
+      return {100.0};
+    }
+    
+    std::vector<double> all_steps = {
+        round_down_100(largest_stepsize * 0.60),
+        round_down_100(largest_stepsize * 0.50),
+        round_down_100(largest_stepsize * 0.30),
+        round_down_100(largest_stepsize * 0.20),
+        round_down_100(largest_stepsize * 0.10),
+        100.0  // Always included
+    };
+    
+// Remove invalid steps (< 100.0) and duplicates using vector
+    std::vector<double> unique_steps;
+    for (double step : all_steps) {
+      if (step >= 100.0) {
+        // Check if already in vector to avoid duplicates
+        if (std::find(unique_steps.begin(), unique_steps.end(), step) == unique_steps.end()) {
+          unique_steps.push_back(step);
+        }
+      }
+    }
+    
+    if (unique_steps.empty()) {
+      return {100.0};
+    }
+    
+    // Weighted selection (biased toward smaller steps)
+    std::vector<double> weights;
+    for (double step : unique_steps) {
+      // Higher weight for smaller steps
+      double weight = 1.0 / (step / 100.0);  // Inverse proportion
+      weights.push_back(weight);
+    }
+    
+    // Create discrete distribution for weighted random selection
+    std::discrete_distribution<> dist(weights.begin(), weights.end());
+    
+    std::vector<double> selected_moves;
+    std::vector<double> selected_set;  // Track selected for uniqueness
+    
+    // Select minimum 3 or all available steps
+    int select_count = std::max(3, (int)unique_steps.size());
+    
+    while (selected_moves.size() < select_count && selected_set.size() < unique_steps.size()) {
+      int idx = dist(gen);
+      if (std::find(selected_set.begin(), selected_set.end(), unique_steps[idx]) == selected_set.end()) {
+        selected_moves.push_back(unique_steps[idx]);
+        selected_set.push_back(unique_steps[idx]);
+      }
+    }
+    
+    // Ensure 100.0 is included if it wasn't randomly selected
+    if (std::find(selected_moves.begin(), selected_moves.end(), 100.0) == selected_moves.end()) {
+      selected_moves.push_back(100.0);
+    }
+    
+    return selected_moves;
+  };
   
   //std::vector<double> block_order; 
   
   while (true)
   {
+    restart_iteration:
+    iteration_count++;
+    bool improvement_found_this_iteration = false;
+    processed_blocks_this_iteration.clear();
+
+    // Decrease lifetimes in ignore list and remove expired entries
+    for (auto it = ignore_list.begin(); it != ignore_list.end(); ) {
+      it->second--;  // Decrease lifetime
+      if (it->second <= 0) {
+        std::cout << "Reactivating block " << it->first << " from ignore list\n";
+        it = ignore_list.erase(it);  // Remove expired entry
+      } else {
+        ++it;
+      }
+    }
 
     // neighbourhood solutions
     std::vector<schedule_struct> list_of_schedules;
@@ -1120,6 +1246,21 @@ schedule_struct local_search_opt_schedule_lambert_only_late_acceptance(double &i
     
     for (size_t b : b_order)
     { // to make the move sizes adaptive 
+      // Check if block is on ignore list
+      bool block_ignored = false;
+      for (const auto& ignore_pair : ignore_list) {
+        if (ignore_pair.first == (int)b) {
+          block_ignored = true;
+          break;
+        }
+      }
+      
+      if (block_ignored) {
+
+        continue;  // Skip this block completely
+      }
+      
+      processed_blocks_this_iteration.push_back(b);
       std::cout<<"b = "<< b << "\n";
     for (int m = 0; m < move_methods.size(); m++)
     {
@@ -1131,91 +1272,18 @@ schedule_struct local_search_opt_schedule_lambert_only_late_acceptance(double &i
 
           double largest_stepsize = init_schedule.blocks[b+1].arrival_time-init_schedule.blocks[b].departure_time;
 
-          std::cout<<"largest stepsize"<< largest_stepsize << "\n";
-          std::cout<<"arrival_time "<< init_schedule.blocks[b+1].arrival_time  << "\n";
-          std::cout<<"departure_time "<< init_schedule.blocks[b].departure_time << "\n";
 
-          // Add temporal validation and bounds checking - focus on numerical issues, not realistic time limits
-          if (largest_stepsize <= 0 || largest_stepsize > 1e15 || std::isnan(largest_stepsize) || std::isinf(largest_stepsize)) {
-            std::cout << "Invalid step size detected: " << largest_stepsize << ", using safe default" << std::endl;
-            dt_move.push_back(100.0);
-          } else {
-            double step30 = round_down_100(largest_stepsize*0.30);
-            
-            double step50 = round_down_100(largest_stepsize*0.50);
-
-
-            double step60 =  round_down_100(largest_stepsize*0.60);
-            
-            double step20 = round_down_100(largest_stepsize*0.20); // always even
-
-            double step10 = round_down_100(largest_stepsize*0.10); 
-            
-
-            if (step30 >= 100.0) {
-              dt_move.push_back(step30);}
-
-            if (step60 >= 100.0) {
-              dt_move.push_back(step60);}
-
-            if (step50 >= 100.0) {dt_move.push_back(step50);}
-            if (step20 >= 100.0) {
-                dt_move.push_back(step20);
-                
-            }
-
-            if (step10 >= 100.0) {                    
-              dt_move.push_back(step10);
-                                 }
-            dt_move.push_back(100.0);
-          }
+          // Use weighted random move size generation
+          dt_move = generate_weighted_random_moves(largest_stepsize);
         }
 
         if (((move_methods[m] == "add arrival") || (move_methods[m] == "sub arrival")) && (b > 0)){
 
           double largest_stepsize = init_schedule.blocks[b].arrival_time -init_schedule.blocks[b-1].departure_time; 
         
-          std::cout<<"largest stepsize"<< largest_stepsize << "\n";
-          std::cout<<"arrival_time "<< init_schedule.blocks[b].arrival_time  << "\n";
-          std::cout<<"departure_time "<< init_schedule.blocks[b-1].departure_time << "\n";
 
-          // Add temporal validation and bounds checking - focus on numerical issues, not realistic time limits
-          if (largest_stepsize <= 0 || largest_stepsize > 1e15 || std::isnan(largest_stepsize) || std::isinf(largest_stepsize)) {
-            std::cout << "Invalid step size detected: " << largest_stepsize << ", using safe default" << std::endl;
-            dt_move.push_back(100.0);
-          } else {
-            double step30 = round_down_100(largest_stepsize*0.30);
-            
-            
-            double step60 =  round_down_100(largest_stepsize*0.60);
-
-
-            double step50 = round_down_100(largest_stepsize*0.50);
-
-            double step20 = round_down_100(largest_stepsize*0.20);
-            
-            double step10 = round_down_100(largest_stepsize*0.10);
-
-            if (step30 >= 100.0) {
-              dt_move.push_back(step30);
-            }
-            
-            if (step60 >= 100.0) {
-              dt_move.push_back(step60);}
-
-            if (step50 >= 100.0) {dt_move.push_back(step50);}
-
-            if (step20 >= 100.0) {dt_move.push_back(step20);
-                
-            }
-
-            if (step10 >= 100.0) {                    
-              dt_move.push_back(step10);
-                                 }
-
-
-            dt_move.push_back(100.0);
-          }
+          // Use weighted random move size generation
+          dt_move = generate_weighted_random_moves(largest_stepsize);
         }
         //dt_move.push_back()
 
@@ -1224,7 +1292,6 @@ schedule_struct local_search_opt_schedule_lambert_only_late_acceptance(double &i
           //for (int b = 0; b < init_schedule.blocks.size(); b++)
           //{
 
-          std::cout<<"move size : "<< dt_move[d] << "\n"; 
 
           schedule_struct schedule_sol = init_schedule;
 
@@ -1234,13 +1301,17 @@ schedule_struct local_search_opt_schedule_lambert_only_late_acceptance(double &i
 
           if ((schedule_sol.blocks[b].departure_time == init_schedule.blocks[b].departure_time) && (schedule_sol.blocks[b].arrival_time == init_schedule.blocks[b].arrival_time))
           {
-            std::cout << "move had no effect"<<"\n"; 
             continue;
           }
 
           double DeltaVMinimaopt = 10000000;
 
-          // Enhanced temporal validation to prevent invalid configurations
+          // Early constraint checking - reject invalid moves before expensive calculations
+          if (!quick_feasibility_check(schedule_sol, b, move_methods[m], dt_move[d])) {
+            continue;
+          }
+
+          // Use simplified constraint checking for move-specific logic
           bool arrival_constraint_satisfied = ((b > 0) &&
                                                (schedule_sol.blocks[b].arrival_time > 0) &&
                                                (schedule_sol.blocks[b].arrival_time <= schedule_sol.blocks[b].arrival_constraint) &&
@@ -1253,11 +1324,8 @@ schedule_struct local_search_opt_schedule_lambert_only_late_acceptance(double &i
               (schedule_sol.blocks[b].departure_time < schedule_sol.blocks[b + 1].arrival_time) &&
               (schedule_sol.blocks[b + 1].arrival_time > schedule_sol.blocks[b].departure_time));
 
-          // Additional sanity check: ensure arrival < departure
-          bool temporal_order_valid = (schedule_sol.blocks[b].arrival_time < schedule_sol.blocks[b].departure_time);
-
           // if the schedule created by the move is feasible
-          if (arrival_constraint_satisfied && departure_constraint_satisfied && temporal_order_valid)
+          if (arrival_constraint_satisfied || departure_constraint_satisfied)
           {
 
             if (move_methods[m] == "move_dt2" || move_methods[m] == "move_dt2_inv")
@@ -1339,87 +1407,99 @@ schedule_struct local_search_opt_schedule_lambert_only_late_acceptance(double &i
             }
           }
 
-          list_of_schedules.push_back(schedule_sol);
-
+          // Calculate total deltaV for the modified schedule
           double totalDeltaV_of_sol = 0.0;
-
           for (task_block tbsol : schedule_sol.blocks)
           {
-
-            totalDeltaV_of_sol +=
-                std::abs(tbsol.deltaV_arrival);
+            totalDeltaV_of_sol += std::abs(tbsol.deltaV_arrival);
           }
-          
 
-          deltaVs_of_neighbourhood.push_back(totalDeltaV_of_sol);
-
-          if (totalDeltaV_of_sol == 0)
+          // Check if improvement found
+          if (totalDeltaV_of_sol < deltaVminima_so_far)
           {
-            std::cout << "0 delta V";
+            // Apply improvement immediately
+            init_schedule = schedule_sol;
+            deltaVminima_so_far = totalDeltaV_of_sol;
+            improvement_found_this_iteration = true;
+            total_improvements++;
+            
+            
+            // Note: Block remains on ignore list with current lifetime
+            // Only removed when lifetime naturally reaches 0
+            
+            // Store convergence data
+            iteration_deltaV_history.push_back(deltaVminima_so_far);
+            
+            // Restart with improved schedule
+            goto restart_iteration;
           }
 
           solnum_neighbourhood += 1;
 
         } // closes iteration over the full schedule
-      } // closes iteration over all move sizes
+      }// closes iteration over all move sizes
+       //
+      std::cout<<"block "<< b <<"it complete ----------------------"<<"\n";
     } // closes iteration over all the moves
 
 
-    std::cout<< "length of delta v array : " << deltaVs_of_neighbourhood.size() << "\n";
+    // Add processed blocks to ignore list if no improvement was found
+    
+    if (!improvement_found_this_iteration) {
+      for (int block_idx : processed_blocks_this_iteration) {
+        // Check if block is already on ignore list
+        bool already_ignored = false;
+        for (const auto& ignore_pair : ignore_list) {
+          if (ignore_pair.first == block_idx) {
+            already_ignored = true;
+            break;
+          }
+        }
+        
+        if (!already_ignored) {
+          ignore_list.push_back({block_idx, 4});  // Add with lifetime = 4
+         
+        }
+      }
+    } else {
+      std::cout << "Improvement found, not adding blocks to ignore list\n";
+    }
 
-    // Check if deltaVs_of_neighbourhood is empty
-    if (deltaVs_of_neighbourhood.empty()) {
-      std::cout << "No feasible neighbourhood solutions found, terminating search." << std::endl;
-      break;
+    // Print ignore list status
+    std::cout << "Ignore list size: " << ignore_list.size() << "\n";
+
+    std::cout << "Evaluations performed in iteration " << iteration_count 
+             << ": " << solnum_neighbourhood << "\n";
+
+    // Check if any improvement was found in this iteration
+    if (!improvement_found_this_iteration)
+    {
+      std::cout << "No improvements found in iteration " << iteration_count 
+               << ". Terminating local search.\n";
+      std::cout << "Total iterations: " << iteration_count 
+               << ", Total improvements: " << total_improvements << "\n";
+      
+      // Print convergence summary
+      if (!iteration_deltaV_history.empty()) {
+        std::cout << "Initial deltaV: " << initial_deltaV 
+                 << ", Final deltaV: " << deltaVminima_so_far << "\n";
+        double total_improvement = (initial_deltaV - deltaVminima_so_far);
+        double improvement_percentage = (total_improvement / initial_deltaV) * 100;
+        std::cout << "Total improvement: " << total_improvement
+                 << " (" << improvement_percentage << "%)\n";
+      }
+      
+      break; // Exit while loop
     }
     
-    std::cout << "deltaVs_of_neighbourhood is not empty, proceeding with minima calculation" << std::endl;
-
-    neighbourhood_minima = find_minima_val(deltaVs_of_neighbourhood);
-    // int fimprove = find_first_index_less_than(deltaVs_of_neighbourhood, deltaVminima_so_far);
-
-    //neighbourhood_minima = deltaVs_of_neighbourhood[fimprove];
-    // if no improvement is found, then stop
-    if (neighbourhood_minima >= deltaVminima_so_far)
-    {
-      init_deltaV = deltaVminima_so_far;
-      break; 
-    }
-
-    // if (neighbourhood_minima == deltaVminima_so_far){
-
-    // arma::uvec idxs = arma::regspace<arma::uvec>(0, deltaVs_of_neighbourhood.n_elem - 1);
-
-    // int idxmin = static_cast<int>(arma::index_min(deltaVs_of_neighbourhood));
-    // arma::uvec mask = arma::find(idxs!=idxmin);
-
-    // idxs = idxs.elem(mask);
-
-    // arma::uword idx = arma::randi<arma::uword>(arma::distr_param(0, idxs.n_elem - 1));
-
-    // int random_id = static_cast<int>(idx);
-
-    // int worstsol = static_cast<int>(arma::index_max(deltaVs_of_neighbourhood));
-
-    // init_schedule = list_of_schedules[worstsol];
-    // deltaVminima_so_far = deltaVs_of_neighbourhood[worstsol];
-
-    //}
-
-    // else if improvement is found, adopt new solution
-    else
-    {
-      int index_minima = find_minima_index(deltaVs_of_neighbourhood);
-
-      deltaVminima_so_far = std::abs(neighbourhood_minima);
-      init_schedule = list_of_schedules[index_minima];
-
-      view_schedule(init_schedule); 
-
-      // std::cout << "Total DeltaV: " << deltaVminima_so_far << "\n";
-    }
+    // Show progress for iterations with improvements
+    view_schedule(init_schedule);
+    std::cout << "Iteration " << iteration_count << " completed. Current deltaV: " 
+              << deltaVminima_so_far << "\n";
 
   } // closes while
 
+  // Set reference parameter to final deltaV
+  init_deltaV = deltaVminima_so_far;
   return init_schedule;
 }

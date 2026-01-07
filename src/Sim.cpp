@@ -87,7 +87,7 @@ int main(int argc, char *argv[])
   double inclination_in_deg = 56;
   double inclinationDiff_in_deg = 2;
 
-  run_simulation("WalkerDelta.csv", "walker_delta", 550000, 10,
+  run_simulation("WalkerDelta.csv", "walker_delta", 770000, 10,
                  altitude_m, num_planes, num_satellites, relative_phase,
                  deg_to_rads(inclination_in_deg), 1.0, deg_to_rads(inclinationDiff_in_deg));
 
@@ -100,13 +100,13 @@ int main(int argc, char *argv[])
 
   std::vector<std::string> satnames = simfile["name"];
 
-  // inputs to generate initial schedule
+  // inputs to generate initial schedule (reduced for testing)
   int num_sat_visits = 3;
-  double t_final = 50000;
+  double t_final = 150000;
   double service_time = 1000;
 
   std::string depot_name = "service_1";
-  std::vector<std::string> client_satnames = {"sat_0", "sat_3", "sat_10", "sat_1", "sat_4", "sat_12", "sat_15", "sat_20", "sat_14", "sat_18"};
+  std::vector<std::string> client_satnames = {"sat_0", "sat_3", "sat_10"};
 
   // initializing init schedule
   std::vector<double> t_depart;
@@ -124,15 +124,16 @@ int main(int argc, char *argv[])
   // ideal case (1 percent convergence)
   std::vector<double> move_size = {15000,10000,9000,8000,6000,5000, 4000, 3500, 3000, 2000, 1500, 1000, 500, 100}; //, 200, 400, 500, 600, 700, 1000, 1500, 2000, 2500, 2700, 3000};
   // formulation 1
-  std::vector<std::string> moves_to_consider = {"add departure", "sub arrival", "sub departure", "add arrival", "move_sub_traj", "move_add_traj"}; //, "move_dt2", "move_dt2_inv"};
+  std::vector<std::string> moves_to_consider = {"add departure", "sub arrival", "sub departure", "add arrival", "move_dt2", "move_dt2_inv", "move_sub_traj", "move_add_traj"};
 
   // run_local_search_tfixed
-
+  
   schedule_struct ls = run_local_search(  simfile, move_size, moves_to_consider,
                                           sat_names_in_schedule, t_depart, t_arrive,
                                           deltaV_of_schedule_heuristic, service_time);
 
   view_schedule(ls);
+  
 
   // vn_search(deltaV_of_schedule_init, ls, move_size,simfile, service_time, moves_to_consider, 500);
 
