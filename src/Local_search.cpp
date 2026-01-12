@@ -989,7 +989,7 @@ schedule_struct run_local_search_tfixed(DataFrame simfile, std::vector<double> m
     init_schedule.blocks[b - 1] = findopt_schedule.blocks[0];
     init_schedule.blocks[b] = findopt_schedule.blocks[1];
     //init_schedule.blocks[b+1] = findopt_schedule.blocks[2];
-    view_schedule(init_schedule);
+    view_schedule(pair_to_pass);
   }
 
   double deltav_of_full_schedule = 0;
