@@ -1,5 +1,10 @@
 ### On Orbit Servicing Toolkit
 
+[![C++](https://img.shields.io/badge/C%2B%2B-17-00599C?logo=c%2B%2B&logoColor=white)](https://isocpp.org)
+[![Python](https://img.shields.io/badge/Python-3.x-blue.svg)](https://python.org)
+[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+
+
 ## Project Aims 
 
 To create a simulation based toolkit that integrates ideas from OR and Physics to enable the study and planning of on-orbit servicing missions. The currently available components include ;- 
