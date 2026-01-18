@@ -1,3 +1,5 @@
+
+*.json
 .vscode/c_cpp_properties.json
 build/cmake_install.cmake
 build/CMakeCache.txt
