@@ -585,10 +585,15 @@ schedule_struct create_schedule_lambert_only(
     }
 
     double deltaV_transfer = 0.0;
+    
+    std::cout << "tarr :" <<  block.arrival_time << "tdep :" << departure_times[i - 1] << "sat" <<  block.satname << "\n";
 
     find_optimal_trajectory_no_iter(satnames[i - 1], block.satname,
                                     departure_times[i - 1], block.arrival_time,
-                                    simfile, deltaV_transfer);
+                                    simfile, deltaV_transfer,"edelbaum");
+
+
+
 
     block.deltaV_arrival = deltaV_transfer;
 
@@ -599,6 +604,11 @@ schedule_struct create_schedule_lambert_only(
 
   return schedule;
 }
+
+
+
+
+
 
 // use local search to find the optimal_schedule
 
@@ -1090,9 +1100,7 @@ schedule_struct local_search_opt_schedule_lambert_only_late_acceptance(double &i
   // Track which blocks were processed this iteration
   std::vector<int> processed_blocks_this_iteration;
   
-  // Random number generation
-  std::random_device rd;
-  std::mt19937 gen(rd());
+  
   
   // Early constraint checking function
   auto quick_feasibility_check = [](const schedule_struct& schedule, int b_index, 
@@ -1126,8 +1134,8 @@ schedule_struct local_search_opt_schedule_lambert_only_late_acceptance(double &i
     return true;
   };
   
-// Weighted random step size generation function
-  auto generate_weighted_random_moves = [&](double largest_stepsize) -> std::vector<double> {
+// Deterministic step size generation function - returns all valid moves
+  auto generate_all_valid_moves = [&](double largest_stepsize) -> std::vector<double> {
     // Add temporal validation and bounds checking
     if (largest_stepsize <= 0 || largest_stepsize > 1e15 || std::isnan(largest_stepsize) || std::isinf(largest_stepsize)) {
       std::cout << "Invalid step size detected: " << largest_stepsize << ", using safe default" << std::endl;
@@ -1143,7 +1151,7 @@ schedule_struct local_search_opt_schedule_lambert_only_late_acceptance(double &i
         100.0  // Always included
     };
     
-// Remove invalid steps (< 100.0) and duplicates using vector
+    // Remove invalid steps (< 100.0) and duplicates using vector
     std::vector<double> unique_steps;
     for (double step : all_steps) {
       if (step >= 100.0) {
@@ -1158,37 +1166,10 @@ schedule_struct local_search_opt_schedule_lambert_only_late_acceptance(double &i
       return {100.0};
     }
     
-    // Weighted selection (biased toward smaller steps)
-    std::vector<double> weights;
-    for (double step : unique_steps) {
-      // Higher weight for smaller steps
-      double weight = 1.0 / (step / 100.0);  // Inverse proportion
-      weights.push_back(weight);
-    }
+    // Sort steps in descending order for systematic exploration
+    std::sort(unique_steps.begin(), unique_steps.end(), std::greater<double>());
     
-    // Create discrete distribution for weighted random selection
-    std::discrete_distribution<> dist(weights.begin(), weights.end());
-    
-    std::vector<double> selected_moves;
-    std::vector<double> selected_set;  // Track selected for uniqueness
-    
-    // Select minimum 3 or all available steps
-    int select_count = std::max(3, (int)unique_steps.size());
-    
-    while (selected_moves.size() < select_count && selected_set.size() < unique_steps.size()) {
-      int idx = dist(gen);
-      if (std::find(selected_set.begin(), selected_set.end(), unique_steps[idx]) == selected_set.end()) {
-        selected_moves.push_back(unique_steps[idx]);
-        selected_set.push_back(unique_steps[idx]);
-      }
-    }
-    
-    // Ensure 100.0 is included if it wasn't randomly selected
-    if (std::find(selected_moves.begin(), selected_moves.end(), 100.0) == selected_moves.end()) {
-      selected_moves.push_back(100.0);
-    }
-    
-    return selected_moves;
+    return unique_steps;
   };
   
   //std::vector<double> block_order; 
@@ -1273,8 +1254,8 @@ schedule_struct local_search_opt_schedule_lambert_only_late_acceptance(double &i
           double largest_stepsize = init_schedule.blocks[b+1].arrival_time-init_schedule.blocks[b].departure_time;
 
 
-          // Use weighted random move size generation
-          dt_move = generate_weighted_random_moves(largest_stepsize);
+          // Use all valid move sizes
+          dt_move = generate_all_valid_moves(largest_stepsize);
         }
 
         if (((move_methods[m] == "add arrival") || (move_methods[m] == "sub arrival")) && (b > 0)){
@@ -1282,8 +1263,8 @@ schedule_struct local_search_opt_schedule_lambert_only_late_acceptance(double &i
           double largest_stepsize = init_schedule.blocks[b].arrival_time -init_schedule.blocks[b-1].departure_time; 
         
 
-          // Use weighted random move size generation
-          dt_move = generate_weighted_random_moves(largest_stepsize);
+          // Use all valid move sizes
+          dt_move = generate_all_valid_moves(largest_stepsize);
         }
         //dt_move.push_back()
 

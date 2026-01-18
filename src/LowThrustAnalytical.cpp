@@ -30,16 +30,70 @@ double calculate_plane_diff_angle(double i_0, double i_1, double RAAN_0,double R
 
 double calculate_edelbaum_deltaV(arma::vec v0, arma::vec v1, arma::vec r0, arma::vec r1, double t,std::string method) {
 
-  
-  
-  // assumes the transfer is between two circular orbits
-  // assumes that there is no RAAN difference
+  //the solutions provided cannot work beyond the following bounds 
   
 
-  orbital_elements orb1 = orb_elems_from_rv(r1, v1); 
+  // delta i > 10deg or
+  // delta RAAN > 20-30 deg
+  // delta a/a  > 0.2 
+  // k values > 3-5
 
-  orbital_elements orb2 = orb_elems_from_rv(r0, v0); 
+
+  auto raan_rate = [] (double a, double e, double i) {
+
+      return -3.0/2.0 * std::sqrt(MU_EARTH/std::pow(a,3)) * ( J2 * std::cos(i)) / std::pow((1.0 - std::pow(e,2)),2) * std::pow((R_EARTH/a),2) ;
+
+
+
+  };
+
+
+  double diff_raan_rate = (raan_rate(orb1.semi_major_axis,orb1.eccentricity,orb1.inclination) - 
+                          raan_rate(orb2.semi_major_axis,orb2.eccentricity,orb2.inclination)) 
+
+  if ()
   
+  // calculate orbital elements 
+
+  orbital_elements orb1 = orb_elems_from_rv(r0, v0); 
+
+  orbital_elements orb2 = orb_elems_from_rv(r1, v1); 
+
+  double deltaV_tot = 0.0; 
+
+  /*
+
+  double wraptopi = [](double angle)
+  {
+    return std::remainder(angle, 2.0 * M_PI);
+  }
+    
+  double raandiff = orb1.RAAN - orb2.RAAN;
+  
+  double raandiff_0 = wraptopi(raandiff);
+  
+  if (raandiff*raandiff_0 < 0){
+
+    std::cout<<"infeasible RAAN alignment"<<"\n";
+
+    method = "active"; 
+
+  }
+  
+  double tmin_nat_precession = std::abs(raan_diff)
+
+  else if()*/
+
+
+  //std::cout<< "i " << ", " << "RAAN" <<" , " << " e " << "\n"; 
+
+  
+  //std::cout<< orb1.inclination << ", " << orb1.RAAN << ", " << orb1.eccentricity << "\n";
+  
+  
+  //std::cout<< orb2.inclination << ", " << orb2.RAAN << ", " << orb2.eccentricity << "\n";
+
+   
   if (method == "No J2"){
 
 
@@ -49,32 +103,34 @@ double calculate_edelbaum_deltaV(arma::vec v0, arma::vec v1, arma::vec r0, arma:
     double V_1 = std::sqrt(MU_EARTH/orb2.semi_major_axis); 
 
 
-  double deltaV = std::sqrt(pow(V_0, 2) + pow(V_1, 2) - 2 * V_0 * V_1 * std::cos(M_PI / 2 * plane_diff_angle));
+    double deltaV = std::sqrt(pow(V_0, 2) + pow(V_1, 2) - 2 * V_0 * V_1 * std::cos(M_PI / 2 * plane_diff_angle));
 
-  //std::cout << "plane diff angle :" << plane_diff_angle<<"  ";
 
-  return deltaV;
+    deltaV_tot = deltaV;
 
   }
 
 
-  else{
+  if (method == "Debris Trajectory"){
 
-
-
-    double i_0 = (orb1.inclination + orb2.inclination)/2.0;
     
-    double a_0 = (orb1.semi_major_axis + orb2.semi_major_axis)/2.0; 
+    // the paper titled " Simple ΔV Approximation for Optimization of Debris-to-Debris Transfers " 
+    // by Shen and Casalino (2020) : arXiv:2004.02225 , proposes an approximate analytical law for 
+    // the quick calculation of delta V in the case of debris to debris transfer (e,i,a, RAAN all change quickly)
+
+
+    //std::cout<< "i " << ", " << "RAAN" <<" , " << " e " << "\n"; 
+  
+    //std::cout<< orb1.inclination << ", " << orb1.RAAN << ", " << orb1.eccentricity << "\n";
+  
+    //std::cout<< orb2.inclination << ", " << orb2.RAAN << ", " << orb2.eccentricity << "\n";
+
+    double i_0 = (orb2.inclination + orb1.inclination)/2.0;
+    
+    double a_0 = (orb2.semi_major_axis + orb1.semi_major_axis)/2.0; 
 
     double v_0 = std::sqrt(MU_EARTH/a_0); 
 
-    auto raan_rate = [] (double a, double e, double i) {
-
-      return -3.0/2.0 * std::sqrt(MU_EARTH/std::pow(a,3)) * ( J2 * std::cos(i)) / std::pow((1.0 - std::pow(e,2)),2) * std::pow((R_EARTH/a),2) ;
-
-
-
-    };
 
 
     double RAAN_dot_0 = (raan_rate(orb1.semi_major_axis,orb1.eccentricity,orb1.inclination) + 
@@ -87,44 +143,211 @@ double calculate_edelbaum_deltaV(arma::vec v0, arma::vec v1, arma::vec r0, arma:
     double n = (RAAN_dot_0 * std::tan(i_0)) * t; 
 
 
+    // these orbital elements present a coordinate (non-physical) singularity 
+    // thus, when the required change is 0, all dependent quantities must be 
+    // manually set to 0 
+
+    //required RAAN change
+    //In this form we actively perform the RAAN change using thrust 
+    //rather than taking advantage of the natural precession of the plane 
+    //due to J2 (gravitational torque due to the bulge of the Earth)
+
     double x  = (orb2.RAAN - orb1.RAAN) * std::sin(i_0) * v_0;
 
+    //required semi-maj axis change 
     double y =  (orb2.semi_major_axis - orb1.semi_major_axis)/(2*a_0) * v_0;
 
+    //required inclination change
     double z = (orb2.inclination - orb1.inclination)*v_0; 
 
-
-    double deltaVa , deltaVb, deltaV_tot;
-
-
-
-    double s_x = ( 2.0*x + m*y + n*z )/((4 + m*m + n*n)*x); 
-    double s_y = (2.0 * m * x - (4 + n*n) * y + m*n*z) / (8 + 2*m*m + 2*n*n)*y; 
-    double s_z = (2*n*x + m*n*y - (4 + m*m)*z)/((8 + 2*m*m + 2*n*n)*z);
+    // we consider three deltaV contributions 
+    // that deal with changing a,i,e,RAAN in a single transfer 
   
+    double deltaVa , deltaVb, deltaV_tot;
+    
+    double s_x, s_y, s_z;
+
+    if (x > 1e-12){
+    
+      s_x = ( 2.0*x + m*y + n*z )/((4 + m*m + n*n)*x); 
+    
+    }
+
+    else{ s_x = 0.0; } 
+    //std::cout << m << " " << n << "\n"; 
+
+    if (y > 1e-12){
+    
+      s_y = (2.0 * m * x - (4 + n*n) * y + m*n*z) / ((8 + 2*m*m + 2*n*n)*y);
+    }
+
+    else{
+
+      s_y = 0.0; 
+    }
+
+    if(z > 1e-12){
+
+       s_z = (2*n*x + (m*n*y) - (4 + m*m)*z)/((8 + (2*m*m) + (2*n*n))*z);
+    
+    }
+
+    else{
+
+        s_z = 0.0; 
+    }
+    
+    //std::cout << s_x <<" "<< s_y <<" "<<s_z << " "<< x <<" "<< y <<" " << z <<" " << "\n" ;
+
+
     double delta_x = m*s_y*y + n*s_z*z;
 
-    deltaVa = std::sqrt((s_x * x)*(s_x * x) + (s_y * y)*(s_y * y) + (s_z*z)*(s_z*z));
+    deltaVa = std::sqrt(((s_x * x)*(s_x * x)) + ((s_y * y)*(s_y * y)) + ((s_z*z)*(s_z*z)));
 
-    deltaVb = std::sqrt( (x-s_x * x - delta_x)* (x-s_x * x - delta_x)  +  (y + s_y * y)*  (y + s_y * y) + (z + s_z * z) *  (z + s_z * z) );
+    double deltaVbsq = ((x- (s_x * x) - delta_x)* (x- (s_x * x) - delta_x))  + ((y + s_y * y)* (y + s_y * y))+ ((z + s_z * z) *  (z + s_z * z)) ;
+    
+    deltaVb = std::sqrt(deltaVbsq);
+    
 
     //small eccentricity changes 
-    
+
     double delta_e_y = orb2.eccentricity*std::sin(orb2.augment_of_periapsis) -  orb1.eccentricity*std::sin(orb1.augment_of_periapsis); 
 
     double delta_e_x = orb2.eccentricity*std::cos(orb2.augment_of_periapsis) -  orb1.eccentricity*std::cos(orb1.augment_of_periapsis); 
 
-    double deltaV_e = 0.5 * v_0 * std::sqrt(delta_e_y*delta_e_y +delta_e_x*delta_e_x);
+    double deltaV_e = 0.5 * v_0 * std::sqrt((delta_e_y*delta_e_y) +(delta_e_x*delta_e_x));
 
-    deltaV_tot = std::sqrt(deltaVa*deltaVa+(deltaV_e*0.5)*(deltaV_e*0.5)) + std::sqrt(deltaVb*deltaVb+(deltaV_e*0.5)*(deltaV_e*0.5));
+    std::cout << "delta Ve :" << deltaV_e << "Delta va "<< deltaVa << "delta Vb " << deltaVb  << "delta Vb sq" << deltaVbsq <<"\n";
 
-  
-    return deltaV_tot; 
+    deltaV_tot = std::sqrt((deltaVa*deltaVa)+((deltaV_e*0.5)*(deltaV_e*0.5))) + std::sqrt((deltaVb*deltaVb)+((deltaV_e*0.5)*(deltaV_e*0.5)));
 
-
+    // Simple NaN check - return penalty if result is invalid
+    if (std::isnan(deltaV_tot) || std::isinf(deltaV_tot)) {
+        //std::cout << "Warning: Edelbaum deltaV calculation returned NaN/Inf, returning penalty value" << std::endl;
+        return 1e10; // Large penalty value
+    }
 
   }
 
+
+
+  if(method == "passive"){
+    
+
+    // Assuming a thrust-coast-thrust transfer with RAAN differences being covered using
+    // natural precession alone. The method would only work if the travel time allows for 
+    // enough time for the precession to be leveraged. 
+    
+
+    // we can check that the provided time of flight is feasible by simply checking if the 
+    // constraint x + delta x is met. 
+
+
+    double RAAN_dot_0 = (raan_rate(orb1.semi_major_axis,orb1.eccentricity,orb1.inclination) + 
+                        raan_rate(orb2.semi_major_axis,orb2.eccentricity,orb2.inclination)) / 2.0 ; 
+
+
+  
+    // actively corrects the RAAN difference using thrusters
+
+    double i_0 = (orb2.inclination + orb1.inclination)/2.0;
+    double a_0 = (orb2.semi_major_axis + orb1.semi_major_axis)/2.0; 
+
+    double v_0 = std::sqrt(MU_EARTH/a_0); 
+
+
+    double x  = M_PI/2.0 * (orb2.RAAN - orb1.RAAN) * std::sin(i_0) * v_0;
+
+    //required semi-maj axis change 
+    double y =  (orb2.semi_major_axis - orb1.semi_major_axis)/(2.0*a_0) * v_0;
+
+    //required inclination change
+    double z = M_PI/2.0 (orb2.inclination - orb1.inclination)*v_0; 
+
+
+    double m = M_PI/2.0 * (7 * RAAN_dot_0)* std::sin(i_0) * t; 
+
+    double n = (RAAN_dot_0 * std::tan(i_0)) * std::sin(i_0) * t; 
+
+
+    double ky, kz; 
+
+
+    ky = - ( 2*m*x - n*n*y + m*n*z ) / (2*(m*m + n*n)*y);
+
+    kz = - (2*n*x + m*n*y - m*m*z) / (2*(m*m + n*n )*z);
+
+
+    double delta_x = m*ky*y + n*kz*z; 
+
+
+    double raan_check = x + delta_x; 
+
+    if(raan_check > 1e-12){
+      
+      std::cout<<" raan not matched - check on line 247 " << "\n"; 
+      std::cout<<" not enough time for RAAN to be matched by natural precession "<<"\n"; 
+
+    }
+
+    double deltav_1 = std::sqrt((ky*y)*(ky*y) + (kz*z)*(kz*z) ); 
+
+
+    double deltav_2 = std::sqrt((y-ky*y)*(y-ky*y) + (z-kz*z)*(z-kz*z));
+
+
+    deltaV_tot = deltav_1 + deltav_2; 
+
+    
+  }
+
+  if(method == "active"){
+
+    // here we assume that the RAAN is matched by using the thrusters
+    // and natural precession does not provide enough of a RAAN change (shorter tof)
+    
+
+    double RAAN_dot_0 = (raan_rate(orb1.semi_major_axis,orb1.eccentricity,orb1.inclination) + 
+                        raan_rate(orb2.semi_major_axis,orb2.eccentricity,orb2.inclination)) / 2.0 ; 
+
+
+    double i_0 = (orb2.inclination + orb1.inclination)/2.0;
+    double a_0 = (orb2.semi_major_axis + orb1.semi_major_axis)/2.0; 
+
+    double v_0 = std::sqrt(MU_EARTH/a_0); 
+  
+    double kx_x, ky_y, kz_z;
+
+    double x  = M_PI/2.0 * (orb2.RAAN - orb1.RAAN) * std::sin(i_0) * v_0;
+
+    //required semi-maj axis change 
+    double y =  (orb2.semi_major_axis - orb1.semi_major_axis)/(2.0*a_0) * v_0;
+
+    //required inclination change
+    double z = M_PI/2.0 (orb2.inclination - orb1.inclination)*v_0; 
+
+
+    double m = M_PI/2.0 * (7 * RAAN_dot_0)* std::sin(i_0) * t; 
+
+    double n = (RAAN_dot_0 * std::tan(i_0)) * std::sin(i_0) * t; 
+
+    double delta_x = m*ky*y + n*kz*z; 
+
+
+    kx_x = (2.0*x + m*y + n*z)/(4 + m*m + n*n);
+    ky_y = - (2*m*x - (4 + n*n)*y + m*n*z)/(8+2*m*m + 2*n*n); 
+    kz_z = - (2*n*x + m*n*y - (4 + m*m)*z)/(8 + 2*m*m + 2*n*n); 
+
+    double deltav1 = std::sqrt((kx_x*kx_x) + (ky_y*ky_y) + (kz_z*kz_z)); 
+
+    double deltav2 = std::sqrt((x - kx_x + delta_x)*(x - kx_x + delta_x) + (y-ky_y)*(y-ky_y) + (z-kz_z)*(z-kz_z));
+
+    deltaV_tot = deltav1 + deltav2; 
+    
+
+  }
+  
+  return deltaV_tot; 
 
 }
 

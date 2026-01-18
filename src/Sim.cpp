@@ -35,7 +35,7 @@ double run_es(schedule_struct &sched_in)
     task_block fromblock = sched_in.blocks[i - 1];
     task_block toblock = sched_in.blocks[i];
 
-    run_exhaustive_search(fromblock.satname, toblock.satname, fromblock.departure_time, toblock.arrival_constraint, DeltaVchange, "WalkerDelta.csv", "", "lambert");
+    run_exhaustive_search(fromblock.satname, toblock.satname, fromblock.departure_time, toblock.arrival_constraint, DeltaVchange, "WalkerDelta.csv", "", "edelbaum");
     std::cout << "\n";
   }
 
@@ -132,11 +132,11 @@ int main(int argc, char *argv[])
 
   // run_local_search_tfixed
   
-  schedule_struct ls = run_local_search_tfixed(simfile, move_size, moves_to_consider,
-                                          sat_names_in_schedule, t_depart, t_arrive,
-                                          deltaV_of_schedule_heuristic, service_time);
+  //schedule_struct ls = run_local_search_tfixed(simfile, move_size, moves_to_consider,
+    //                                      sat_names_in_schedule, t_depart, t_arrive,
+      //                                    deltaV_of_schedule_heuristic, service_time);
 
-  view_schedule(ls);
+  //view_schedule(ls);
   
     
   // vn_search(deltaV_of_schedule_init, ls, move_size,simfile, service_time, moves_to_consider, 500);
@@ -222,9 +222,13 @@ void run_comprehensive_scaling_tests()
     init_dep_arrival_times_strict_timespan(t_depart, t_arrive, t_final, service_time, visits);
     std::vector<std::string> sat_names_in_schedule = init_satname_array(depot_name, client_satnames, false, visits);
     
-    double initdeltavDP;
+    double initdeltavDP = 0.0;
     schedule_struct schedule_base = create_schedule_lambert_only(initdeltavDP, t_arrive, t_depart, sat_names_in_schedule, simfile, service_time);
     
+    view_schedule(schedule_base); 
+    
+    continue; 
+
     // Test Exact Method
     std::cout << "Testing Exact Method..." << std::endl;
     try {
@@ -235,7 +239,7 @@ void run_comprehensive_scaling_tests()
       double time_exact_ms = std::chrono::duration<double, std::milli>(end_exact - start_exact).count();
       
       std::cout << "Exact Method - Time: " << time_exact_ms << "ms, DeltaV: " << deltaV_exact << std::endl;
-      
+       
       // Write exact method results
       results_file << visits << ",exact," << time_exact_ms << "," << deltaV_exact << ",1,0.0,true" << std::endl;
       

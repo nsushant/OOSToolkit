@@ -27,6 +27,7 @@ void find_optimal_trajectory(std::string service_satname, std::string client_sat
 
 double compact_optimal_calc(std::string satname1, std::string satname2, double departure_time, double arrival_time, DataFrame simfile);
 
-void find_optimal_trajectory_no_iter(std::string service_satname, std::string client_satname, double t_departure, double t_arrival, DataFrame simfile, double &DeltaVMinima);
+void find_optimal_trajectory_no_iter(std::string service_satname, std::string client_satname, double t_departure, 
+    double t_arrival, DataFrame simfile, double &DeltaVMinima, std::string method="lambert");
 
 void run_exhaustive_search(std::string sat_from, std::string sat_to, double t_from, double t_to, double &deltaV_change, std::string simfilename, std::string outputfilename = "", std::string method = "lambert");

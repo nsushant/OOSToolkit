@@ -79,8 +79,12 @@ orbital_elements orb_elems_from_rv(arma::vec r, arma::vec v){
     
     double RAAN; 
 
+    if (n_norm < 1e-10) {
+    
+      RAAN = 0.0;  // Convention
+    }
 
-    if (n(1) >= 0 ){
+    else if (n(1) >= 0 ){
 
         RAAN =  std::acos(n(0)/n_norm); 
 
@@ -106,18 +110,23 @@ orbital_elements orb_elems_from_rv(arma::vec r, arma::vec v){
 
     double p_arg; 
     
-    if (e(2) >= 0){
 
-        double p_arg = std::acos(arma::dot(n,e)/ (n_norm*e_norm)); 
-    
+    if (e_norm < 1e-10 || n_norm < 1e-10) {
+      p_arg = 0.0;  // Convention
+    }
+
+
+
+    else if (e(2) >= 0){
+
+        p_arg = std::acos(arma::dot(n,e)/ (n_norm*e_norm));     
 
     }
     
 
-
     else{
 
-        double p_arg = 2*M_PI - std::acos(arma::dot(n,e)/ (n_norm*e_norm)); 
+        p_arg = 2*M_PI - std::acos(arma::dot(n,e)/ (n_norm*e_norm)); 
 
     }
     
@@ -127,15 +136,19 @@ orbital_elements orb_elems_from_rv(arma::vec r, arma::vec v){
     
     double nu; 
 
-    if (arma::dot(r,v) >= 0){
+    if (e_norm < 1e-10) {
+      nu = 0.0;  // Convention
+    }
 
-      double nu = std::acos(arma::dot(e,r) / (e_norm*r_norm)); 
+    else if (arma::dot(r,v) >= 0){
+
+      nu = std::acos(arma::dot(e,r) / (e_norm*r_norm)); 
 
     }
     
     else{
 
-      double nu = 2*M_PI - std::acos(arma::dot(e,r) / (e_norm*r_norm)); 
+      nu = 2*M_PI - std::acos(arma::dot(e,r) / (e_norm*r_norm)); 
     
     }
 
@@ -167,6 +180,7 @@ orbital_elements orb_elems_from_rv(arma::vec r, arma::vec v){
 
     }
 
+  
 
     // we have now calculated all orbital elements
     // now assign these to the orbital_elements object
@@ -594,7 +608,7 @@ class Simulation{
         // constructor
         Simulation(){
             
-            force_options.includeJ2 = false;
+            force_options.includeJ2 = true;
             force_options.includeMutual = false;
             numsats = 0; 
             

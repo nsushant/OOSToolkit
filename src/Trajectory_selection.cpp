@@ -189,7 +189,7 @@ void find_optimal_trajectory(std::string service_satname, std::string client_sat
                         idealarr = valid_t_client(t_cl);
                         idealdep = available_t_service(t_ser);
                     }
-
+  
                     else if (sols_tot == 1)
                     {
                         DeltaVMinima = deltaTotal;
@@ -197,21 +197,37 @@ void find_optimal_trajectory(std::string service_satname, std::string client_sat
                 }
             }
 
-            else if (method == "edelbaum")
+            else
             {
                 sols_tot += 1;
 
-                double v_depot_edelbaum = arma::norm(v_service_loop);
-                double v_client_edelbaum = arma::norm(v_client_loop);
+                double transfer_duration = possible_tofs(t_cl);
+
+                arma::uword serv_time = arma::index_min( arma::abs(available_t_service - valid_t_client(t_cl)) );
+                  
+                   
+                double t2_x_service = available_x_service(serv_time);
+                double t2_y_service = available_y_service(serv_time);
+                double t2_z_service = available_z_service(serv_time);
+
+
+                double t2_vx_service = available_vx_service(serv_time);
+                double t2_vy_service = available_vy_service(serv_time);
+                double t2_vz_service = available_vz_service(serv_time);
+
+                arma::vec3 r_depot_edelbaum = {t2_x_service,t2_y_service, t2_z_service};
+                arma::vec3 v_depot_edelbaum = {t2_vx_service,t2_vy_service, t2_vz_service};
+  
+                 
 
                 //double i_from = get_inclination(r_service, v_service_loop);
                 //double i_to = get_inclination(r_client_loop, v_client_loop);
 
                 //double plane_diff_angle = std::abs(i_from - i_to);
                 
-                double deltaVedelbaum = calculate_edelbaum_deltaV(v_service_loop, v_client_loop, r_service, r_client_loop);
+                double deltaVedelbaum = calculate_edelbaum_deltaV(v_depot_edelbaum, v_client_loop, r_depot_edelbaum, r_client_loop, transfer_duration,"all");
 
-                DeltaVMinima = deltaVedelbaum;
+                //DeltaVMinima = deltaVedelbaum;  
 
                 //double deltaVedelbaum = calculate_edelbaum_deltaV(v_service_loop, v_client_loop, r_service, r_client_loop);
 
@@ -220,17 +236,22 @@ void find_optimal_trajectory(std::string service_satname, std::string client_sat
 
                 //DeltaVMinima = deltaVedelbaum;
 
-                //if ((sols_tot > 1) && (deltaVedelbaum < DeltaVMinima))
-                //{
+                if ((sols_tot > 1) && (deltaVedelbaum < DeltaVMinima))
+                {
 
-                //                    DeltaVMinima = deltaVedelbaum;
-                //}
+                      tof_optimal = possible_tofs(t_cl);
 
-                //else if (sols_tot == 1)
-                //{
+                      idealarr = valid_t_client(t_cl);
+                      idealdep = available_t_service(t_ser);
 
-                  //  DeltaVMinima = deltaVedelbaum;
-                //}
+                      DeltaVMinima = deltaVedelbaum;
+                }
+
+                else if (sols_tot == 1)
+                {
+
+                    DeltaVMinima = deltaVedelbaum;
+                }
             }
         }
 
@@ -257,7 +278,8 @@ double compact_optimal_calc(std::string satname1, std::string satname2, double d
     return deltaV_arrival;
 }
 
-void find_optimal_trajectory_no_iter(std::string service_satname, std::string client_satname, double t_departure, double t_arrival, DataFrame simfile, double &DeltaVMinima)
+void find_optimal_trajectory_no_iter(std::string service_satname, std::string client_satname, double t_departure, 
+                                      double t_arrival, DataFrame simfile, double &DeltaVMinima, std::string method)
 {
 
     // methods used on dataframes and the definition of the data structure
@@ -281,71 +303,55 @@ void find_optimal_trajectory_no_iter(std::string service_satname, std::string cl
     arma::vec t_service_sat = t_sat.elem(service_sat_idxs);
     // arma::uword t_service_departure_idx = arma::index_min(arma::abs(t_service_sat - t_departure));
 
-    arma::uvec idxs_greater_dep = arma::find(t_service_sat == t_departure);
+    arma::uword idx_dep = arma::index_min(arma::abs(t_service_sat - t_departure));
 
-    t_service_sat = t_service_sat.elem(idxs_greater_dep);
-
-    arma::uword t_service_departure_idx = arma::index_min(t_service_sat);
-
-    double t_service_departure = t_service_sat(t_service_departure_idx);
+    double t_service_departure = t_service_sat(idx_dep); //(t_service_departure_idx);
 
     arma::vec x_service = x_sat.elem(service_sat_idxs);
-    x_service = x_service.elem(idxs_greater_dep);
-    double x_service_sat = x_service(t_service_departure_idx);
+    double x_service_sat = x_service(idx_dep);
 
     arma::vec y_service = y_sat.elem(service_sat_idxs);
-    y_service = y_service.elem(idxs_greater_dep);
-    double y_service_sat = y_service(t_service_departure_idx);
+    double y_service_sat = y_service(idx_dep);
 
     arma::vec z_service = z_sat.elem(service_sat_idxs);
-    z_service = z_service.elem(idxs_greater_dep);
-    double z_service_sat = z_service(t_service_departure_idx);
+    double z_service_sat = z_service(idx_dep);
 
     arma::vec vx_service = vx_sat.elem(service_sat_idxs);
-    vx_service = vx_service.elem(idxs_greater_dep);
-    double vx_service_sat = vx_service(t_service_departure_idx);
+    double vx_service_sat = vx_service(idx_dep);
 
     arma::vec vy_service = vy_sat.elem(service_sat_idxs);
-    vy_service = vy_service.elem(idxs_greater_dep);
-    double vy_service_sat = vy_service(t_service_departure_idx);
+    double vy_service_sat = vy_service(idx_dep);
 
     arma::vec vz_service = vz_sat.elem(service_sat_idxs);
-    vz_service = vz_service.elem(idxs_greater_dep);
-    double vz_service_sat = vz_service(t_service_departure_idx);
+    double vz_service_sat = vz_service(idx_dep);
+
 
     // Finding physical state params of the client satellite
     arma::vec t_client = t_sat.elem(client_sat_idxs);
 
     // arma::uword t_client_arrival_idx = arma::index_min(arma::abs(t_client - t_arrival));
-    arma::uvec idxs_greater_arr = arma::find(t_client == t_arrival);
-    t_client = t_client.elem(idxs_greater_arr);
+    arma::uword idx_arr = arma::index_min(arma::abs(t_client - t_arrival));
 
-    arma::uword t_client_arrival_idx = arma::index_min(t_client);
+    arma::uword t_client_arrival_idx = idx_arr;
 
     double t_client_arrival = t_client(t_client_arrival_idx);
 
     arma::vec x_client = x_sat.elem(client_sat_idxs);
-    x_client = x_client.elem(idxs_greater_arr);
     double x_client_sat = x_client(t_client_arrival_idx);
 
     arma::vec y_client = y_sat.elem(client_sat_idxs);
-    y_client = y_client.elem(idxs_greater_arr);
     double y_client_sat = y_client(t_client_arrival_idx);
 
     arma::vec z_client = z_sat.elem(client_sat_idxs);
-    z_client = z_client.elem(idxs_greater_arr);
     double z_client_sat = z_client(t_client_arrival_idx);
 
     arma::vec vx_client = vx_sat.elem(client_sat_idxs);
-    vx_client = vx_client.elem(idxs_greater_arr);
     double vx_client_sat = vx_client(t_client_arrival_idx);
 
     arma::vec vy_client = vy_sat.elem(client_sat_idxs);
-    vy_client = vy_client.elem(idxs_greater_arr);
     double vy_client_sat = vy_client(t_client_arrival_idx);
 
     arma::vec vz_client = vz_sat.elem(client_sat_idxs);
-    vz_client = vz_client.elem(idxs_greater_arr);
     double vz_client_sat = vz_client(t_client_arrival_idx);
 
     DeltaVMinima = -1.0;
@@ -371,48 +377,94 @@ void find_optimal_trajectory_no_iter(std::string service_satname, std::string cl
     }
 
     int revmax = std::floor(tof_largest / period);
-
-    std::vector<arma::vec> sols = lambert_solver(r_service, r_client, tof_largest, MU_EARTH, 0, 100);
-
-
-    //double deltaVedelbaum = calculate_edelbaum_deltaV(v_service, v_client, r_service, r_client);
-
-    //DeltaVMinima = deltaVedelbaum;
     
-    double deltaVsols = -1 * pow(10, 9);
+    if(method == "lambert"){
 
-    for (int sol = 0; sol < sols.size(); sol++)
-    {
+        std::vector<arma::vec> sols = lambert_solver(r_service, r_client, tof_largest, MU_EARTH, 0, 100);
 
-        arma::vec v1sol_loop = get_v1(sols, sol);
-        arma::vec v2sol_loop = get_v2(sols, sol);
 
-        arma::vec deltaV1 = v1sol_loop - v_service;
-        arma::vec deltaV2 = v2sol_loop - v_client;
+        //double deltaVedelbaum = calculate_edelbaum_deltaV(v_service, v_client, r_service, r_client);
 
-        double deltaTotal = std::abs(arma::norm(deltaV1) + arma::norm(deltaV2));
+        //DeltaVMinima = deltaVedelbaum;
+    
+        double deltaVsols = -1 * pow(10, 9);
 
-        if (deltaVsols > 0)
+        for (int sol = 0; sol < sols.size(); sol++)
         {
+
+            arma::vec v1sol_loop = get_v1(sols, sol);
+            arma::vec v2sol_loop = get_v2(sols, sol);
+
+            arma::vec deltaV1 = v1sol_loop - v_service;
+            arma::vec deltaV2 = v2sol_loop - v_client;
+
+            double deltaTotal = std::abs(arma::norm(deltaV1) + arma::norm(deltaV2));
+
+            if (deltaVsols > 0)
+            {
 
             if (deltaVsols > deltaTotal)
             {
 
                 deltaVsols = deltaTotal;
             }
-        }
+            }
 
-        else
-        {
+            else
+            {
 
             deltaVsols = deltaTotal;
+            }
         }
+
+        DeltaVMinima = deltaVsols;
+
     }
 
-    DeltaVMinima = deltaVsols;
+
+    else{
+
+      
+                double transfer_duration = tof_largest;
+
+                arma::uword serv_time = arma::index_min(arma::abs(t_service_sat - t_arrival));
+
+                std::cout << " transfer duration : "<< transfer_duration << "\n";
+                
+
+                double t2_x_service = x_service(serv_time);
+                double t2_y_service = y_service(serv_time);
+                double t2_z_service = z_service(serv_time);
+
+
+                double t2_vx_service = vx_service(serv_time);
+                double t2_vy_service = vy_service(serv_time);
+                double t2_vz_service = vz_service(serv_time);
+
+                arma::vec3 r_depot_edelbaum = {t2_x_service,t2_y_service, t2_z_service};
+                arma::vec3 v_depot_edelbaum = {t2_vx_service,t2_vy_service, t2_vz_service};
+  
+                 
+
+                //double i_from = get_inclination(r_service, v_service_loop);
+                //double i_to = get_inclination(r_client_loop, v_client_loop);
+
+                //double plane_diff_angle = std::abs(i_from - i_to);
+                
+                double deltaVedelbaum = calculate_edelbaum_deltaV(v_depot_edelbaum, v_client, r_depot_edelbaum, r_client, transfer_duration,"all");
+
+                DeltaVMinima = deltaVedelbaum;  
+
+
+
+    }
+
 }
 
-void run_exhaustive_search(std::string sat_from, std::string sat_to, double t_from, double t_to, double &deltaV_change, std::string simfilename, std::string outputfilename, std::string method)
+
+
+void run_exhaustive_search( std::string sat_from, std::string sat_to, double t_from, double t_to, double &deltaV_change, std::string simfilename, 
+                            std::string outputfilename, std::string method )
 {
 
     DataFrame simfile("../data/" + simfilename);
