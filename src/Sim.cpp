@@ -84,6 +84,9 @@ int main(int argc, char *argv[])
 
   std::cout << "------------------Running Simulation---------------------" << std::endl;
 
+
+  force_model fmodel(true,false); 
+
   double altitude_m = 700 * 1000;
   int num_planes = 5;
   int num_satellites = 30;
@@ -93,10 +96,10 @@ int main(int argc, char *argv[])
 
   run_simulation("WalkerDelta.csv", "walker_delta", 770000, 10,
                  altitude_m, num_planes, num_satellites, relative_phase,
-                 deg_to_rads(inclination_in_deg), 1.0, deg_to_rads(inclinationDiff_in_deg));
+                 deg_to_rads(inclination_in_deg), fmodel, 1.0, deg_to_rads(inclinationDiff_in_deg));
 
   std::cout << "finished running sim" << "\n";
-
+  
   std::cout << "------------------Running Local Search---------------------" << std::endl; 
 
   // Setting up an initial schedule

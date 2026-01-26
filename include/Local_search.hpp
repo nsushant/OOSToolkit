@@ -22,11 +22,11 @@ struct task_block
 {
 
     double arrival_time = 0.0;
-    double departure_time = 0.0;
     std::string satname = "unassigned";
     double deltaV_arrival = 0.0;
     double service_duration = 0.0;
     double arrival_constraint = 0.0;
+    double departure_time = arrival_time + service_duration;
 };
 
 struct schedule_struct

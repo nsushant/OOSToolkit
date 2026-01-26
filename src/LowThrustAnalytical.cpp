@@ -39,20 +39,7 @@ double calculate_edelbaum_deltaV(arma::vec v0, arma::vec v1, arma::vec r0, arma:
   // k values > 3-5
 
 
-  auto raan_rate = [] (double a, double e, double i) {
 
-      return -3.0/2.0 * std::sqrt(MU_EARTH/std::pow(a,3)) * ( J2 * std::cos(i)) / std::pow((1.0 - std::pow(e,2)),2) * std::pow((R_EARTH/a),2) ;
-
-
-
-  };
-
-
-  double diff_raan_rate = (raan_rate(orb1.semi_major_axis,orb1.eccentricity,orb1.inclination) - 
-                          raan_rate(orb2.semi_major_axis,orb2.eccentricity,orb2.inclination)) 
-
-  if ()
-  
   // calculate orbital elements 
 
   orbital_elements orb1 = orb_elems_from_rv(r0, v0); 
@@ -61,37 +48,33 @@ double calculate_edelbaum_deltaV(arma::vec v0, arma::vec v1, arma::vec r0, arma:
 
   double deltaV_tot = 0.0; 
 
-  /*
+  auto raan_rate = [] (double a, double e, double i) {
 
-  double wraptopi = [](double angle)
-  {
-    return std::remainder(angle, 2.0 * M_PI);
-  }
+      return -3.0/2.0 * std::sqrt(MU_EARTH/std::pow(a,3)) * ( J2 * std::cos(i)) / std::pow((1.0 - std::pow(e,2)),2) * std::pow((R_EARTH/a),2) ;
+
+
+  };
+
+
+  double diff_raan_rate = (raan_rate(orb1.semi_major_axis,orb1.eccentricity,orb1.inclination) - 
+                          raan_rate(orb2.semi_major_axis,orb2.eccentricity,orb2.inclination)); 
+
+  
+  
+
+  // is it feasible to make up the raan diff passively 
+  if (method == "passive"){
+
     
-  double raandiff = orb1.RAAN - orb2.RAAN;
+    double feasibility_with_nat_precession =  std::abs(orb1.RAAN - orb2.RAAN)/std::abs(diff_raan_rate); 
+
+    
+    if (feasibility_with_nat_precession > t){
+
+        method = "active"; 
+    }
   
-  double raandiff_0 = wraptopi(raandiff);
-  
-  if (raandiff*raandiff_0 < 0){
-
-    std::cout<<"infeasible RAAN alignment"<<"\n";
-
-    method = "active"; 
-
   }
-  
-  double tmin_nat_precession = std::abs(raan_diff)
-
-  else if()*/
-
-
-  //std::cout<< "i " << ", " << "RAAN" <<" , " << " e " << "\n"; 
-
-  
-  //std::cout<< orb1.inclination << ", " << orb1.RAAN << ", " << orb1.eccentricity << "\n";
-  
-  
-  //std::cout<< orb2.inclination << ", " << orb2.RAAN << ", " << orb2.eccentricity << "\n";
 
    
   if (method == "No J2"){
@@ -167,16 +150,18 @@ double calculate_edelbaum_deltaV(arma::vec v0, arma::vec v1, arma::vec r0, arma:
     
     double s_x, s_y, s_z;
 
-    if (x > 1e-12){
+    if ( x*x > 1e-12 ){
     
       s_x = ( 2.0*x + m*y + n*z )/((4 + m*m + n*n)*x); 
     
     }
 
-    else{ s_x = 0.0; } 
+    else{ 
+      s_x = 0.0; 
+    } 
     //std::cout << m << " " << n << "\n"; 
 
-    if (y > 1e-12){
+    if (y*y > 1e-12){
     
       s_y = (2.0 * m * x - (4 + n*n) * y + m*n*z) / ((8 + 2*m*m + 2*n*n)*y);
     }
@@ -186,7 +171,7 @@ double calculate_edelbaum_deltaV(arma::vec v0, arma::vec v1, arma::vec r0, arma:
       s_y = 0.0; 
     }
 
-    if(z > 1e-12){
+    if(z*z > 1e-12){
 
        s_z = (2*n*x + (m*n*y) - (4 + m*m)*z)/((8 + (2*m*m) + (2*n*n))*z);
     
@@ -262,21 +247,51 @@ double calculate_edelbaum_deltaV(arma::vec v0, arma::vec v1, arma::vec r0, arma:
     double y =  (orb2.semi_major_axis - orb1.semi_major_axis)/(2.0*a_0) * v_0;
 
     //required inclination change
-    double z = M_PI/2.0 (orb2.inclination - orb1.inclination)*v_0; 
+    double z = M_PI/2.0*(orb2.inclination - orb1.inclination)*v_0; 
 
 
-    double m = M_PI/2.0 * (7 * RAAN_dot_0)* std::sin(i_0) * t; 
+    // if the average inclination is 0 m=n=0 , 
+    // the RAAN precession rate or omega_dot can only ever be 0 when i = 90 
+    // (so cos (i) is 0) 
 
-    double n = (RAAN_dot_0 * std::tan(i_0)) * std::sin(i_0) * t; 
+    double m,n; 
 
+    if ((i_0*i_0 < 1e-12) || ( RAAN_dot_0*RAAN_dot_0 < 1e-12)){
+
+
+      m = 0.0; 
+      n = 0.0;
+
+    }
+
+    else{
+
+      m = M_PI/2.0 * (7 * RAAN_dot_0)* std::sin(i_0) * t; 
+
+      n = (RAAN_dot_0 * std::tan(i_0)) * std::sin(i_0) * t; 
+      
+    }
+
+    double m_n_denom = (m*m + n*n); 
 
     double ky, kz; 
 
+    if (m_n_denom > 1e-12){
+    
+  
+      // percent change in semi-major axis (first phase)
+      ky = (y*y > 1e-12) ? -(2*m*x - n*n*y + m*n*z) / (2*(m*m + n*n)*y) : 0.0;
 
-    ky = - ( 2*m*x - n*n*y + m*n*z ) / (2*(m*m + n*n)*y);
+      // percent change in inclination (first phase)
+      kz = (z*z > 1e-12) ? -(2*n*x + m*n*y - m*m*z) / (2*(m*m + n*n )*z) : 0.0;
+    
+    }
 
-    kz = - (2*n*x + m*n*y - m*m*z) / (2*(m*m + n*n )*z);
+    else{
 
+      ky = 0.0; 
+      kz = 0.0; 
+    }
 
     double delta_x = m*ky*y + n*kz*z; 
 
@@ -290,9 +305,11 @@ double calculate_edelbaum_deltaV(arma::vec v0, arma::vec v1, arma::vec r0, arma:
 
     }
 
+    // semi major axis and inclination change (first phase)
     double deltav_1 = std::sqrt((ky*y)*(ky*y) + (kz*z)*(kz*z) ); 
 
 
+    // remaining change to match target orbit (second phase)
     double deltav_2 = std::sqrt((y-ky*y)*(y-ky*y) + (z-kz*z)*(z-kz*z));
 
 
@@ -318,25 +335,45 @@ double calculate_edelbaum_deltaV(arma::vec v0, arma::vec v1, arma::vec r0, arma:
   
     double kx_x, ky_y, kz_z;
 
+
+    // required active raan change 
     double x  = M_PI/2.0 * (orb2.RAAN - orb1.RAAN) * std::sin(i_0) * v_0;
 
     //required semi-maj axis change 
     double y =  (orb2.semi_major_axis - orb1.semi_major_axis)/(2.0*a_0) * v_0;
 
     //required inclination change
-    double z = M_PI/2.0 (orb2.inclination - orb1.inclination)*v_0; 
+    double z = M_PI/2.0*(orb2.inclination - orb1.inclination)*v_0; 
 
 
-    double m = M_PI/2.0 * (7 * RAAN_dot_0)* std::sin(i_0) * t; 
+    double m,n; 
 
-    double n = (RAAN_dot_0 * std::tan(i_0)) * std::sin(i_0) * t; 
+    
 
-    double delta_x = m*ky*y + n*kz*z; 
+    if ((i_0*i_0 < 1e-12) || ( RAAN_dot_0*RAAN_dot_0 < 1e-12))
+    {
 
+        m = 0.0;
+        n= 0.0; 
 
+    }
+
+    else
+    {
+        m = M_PI/2.0 * (7 * RAAN_dot_0)* std::sin(i_0) * t; 
+
+        n = (RAAN_dot_0 * std::tan(i_0)) * std::sin(i_0) * t; 
+    }
+
+    
     kx_x = (2.0*x + m*y + n*z)/(4 + m*m + n*n);
     ky_y = - (2*m*x - (4 + n*n)*y + m*n*z)/(8+2*m*m + 2*n*n); 
     kz_z = - (2*n*x + m*n*y - (4 + m*m)*z)/(8 + 2*m*m + 2*n*n); 
+    
+
+
+    double delta_x = m*ky_y + n*kz_z; 
+
 
     double deltav1 = std::sqrt((kx_x*kx_x) + (ky_y*ky_y) + (kz_z*kz_z)); 
 
@@ -346,6 +383,9 @@ double calculate_edelbaum_deltaV(arma::vec v0, arma::vec v1, arma::vec r0, arma:
     
 
   }
+
+
+
   
   return deltaV_tot; 
 

@@ -106,8 +106,14 @@ struct satellite_object
 };
 
 struct force_model {
-    bool includeJ2 = true;
-    bool includeMutual = true;
+    const bool includeJ2;
+    const bool includeMutual;
+    
+    // Default constructor
+    force_model() : includeJ2(true), includeMutual(false) {}
+    
+    // Parameterized constructor
+    force_model(bool j2, bool mutual) : includeJ2(j2), includeMutual(mutual) {}
 };
 
 
@@ -152,5 +158,6 @@ void showProgressBar(int progress, int total, int barWidth = 50);
 
 void run_simulation(    std::string save_to_file, std::string arrangement, double t_final,double dt, 
                         double altitude_m,double num_planes, double num_satellites, 
-                        double relative_phase, double inclination_in_radians, double satmass=1.0,double idiff=0.0);
+                        double relative_phase, double inclination_in_radians,
+                        force_model fmodel ,double satmass=1.0,double idiff=0.0);
 

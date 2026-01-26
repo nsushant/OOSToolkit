@@ -47,10 +47,16 @@ struct satellite_object {
 ```
 
 **`force_model`**
+Immutable struct for configuring force model options. Once initialized, the boolean values cannot be changed.
+
 ```cpp
 struct force_model {
-    bool includeJ2 = true;      // Include J2 perturbations
-    bool includeMutual = true;  // Include mutual gravitational forces
+    const bool includeJ2;       // Include J2 perturbations (immutable)
+    const bool includeMutual;   // Include mutual gravitational forces (immutable)
+    
+    // Constructors
+    force_model();                              // Default: both false
+    force_model(bool j2, bool mutual);         // Custom values
 };
 ```
 

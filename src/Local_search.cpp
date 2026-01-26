@@ -37,6 +37,7 @@ void move_sub_traj(std::vector<task_block> &blocks, int b_index, double dt)
 
         blocks[b_index].arrival_time += dt;
         blocks[b_index].departure_time -= dt;
+
       }
     }
 

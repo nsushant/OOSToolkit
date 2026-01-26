@@ -458,7 +458,8 @@ void showProgressBar(int progress, int total, int barWidth ) {
 
 void run_simulation(    std::string save_to_file, std::string arrangement, double t_final,double dt, 
                         double altitude_m,double num_planes, double num_satellites, 
-                        double relative_phase, double inclination_in_radians, double satmass,double idiff){
+                        double relative_phase, double inclination_in_radians,force_model fmodel,
+                        double satmass,double idiff){
 
 
     double altitude = R_EARTH + altitude_m;
@@ -466,10 +467,6 @@ void run_simulation(    std::string save_to_file, std::string arrangement, doubl
     double period = 2*M_PI * sqrt(pow(altitude,3) / MU_EARTH);
 
     std::cout << "orbital period: " <<  period;  
-
-    force_model force_options;
-    force_options.includeJ2 = false;
-    force_options.includeMutual = false;
 
     std::vector<satellite_object> sats; 
 
@@ -556,7 +553,7 @@ void run_simulation(    std::string save_to_file, std::string arrangement, doubl
 
         }
 
-        runge_kutta_step(sats, dt, force_options);
+        runge_kutta_step(sats, dt, fmodel);
         
         t += dt;
         step++;
@@ -606,18 +603,13 @@ class Simulation{
         std::vector<double> taken_inclinations;
         std::vector<double> taken_a; 
         // constructor
-        Simulation(){
-            
-            force_options.includeJ2 = true;
-            force_options.includeMutual = false;
+        Simulation() : force_options(true, false) {
             numsats = 0; 
             
         };
 
 
-        Simulation(force_model force_opts){
-
-            force_options=force_opts;
+        Simulation(force_model force_opts) : force_options(force_opts) {
             numsats=0; 
 
         };

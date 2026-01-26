@@ -225,7 +225,7 @@ void find_optimal_trajectory(std::string service_satname, std::string client_sat
 
                 //double plane_diff_angle = std::abs(i_from - i_to);
                 
-                double deltaVedelbaum = calculate_edelbaum_deltaV(v_depot_edelbaum, v_client_loop, r_depot_edelbaum, r_client_loop, transfer_duration,"all");
+                double deltaVedelbaum = calculate_edelbaum_deltaV(v_depot_edelbaum, v_client_loop, r_depot_edelbaum, r_client_loop, transfer_duration,"passive");
 
                 //DeltaVMinima = deltaVedelbaum;  
 
@@ -451,7 +451,7 @@ void find_optimal_trajectory_no_iter(std::string service_satname, std::string cl
 
                 //double plane_diff_angle = std::abs(i_from - i_to);
                 
-                double deltaVedelbaum = calculate_edelbaum_deltaV(v_depot_edelbaum, v_client, r_depot_edelbaum, r_client, transfer_duration,"all");
+                double deltaVedelbaum = calculate_edelbaum_deltaV(v_depot_edelbaum, v_client, r_depot_edelbaum, r_client, transfer_duration,"passive");
 
                 DeltaVMinima = deltaVedelbaum;  
 
