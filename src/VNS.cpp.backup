@@ -12,7 +12,6 @@
 #include <random>
 #include <numeric>
 #include <map>
-#include <algorithm>
 /*
 Author : S. Nigudkar (2025)
 
@@ -20,8 +19,6 @@ Functions to initialize schedules and find the optimal schedule using local
 search.
 
 */
-
-
 
 int safe_sizet_to_int(size_t s)
 {
@@ -49,50 +46,65 @@ int find_minima_index(std::vector<double> v)
 }
 
 void vn_search(double &init_deltaV, schedule_struct &init_schedule, std::vector<double> dt_move,
-               DataFrame simfile, double service_time, std::vector<std::string>&move_methods, int max_iter)
+               DataFrame simfile, double service_time, std::vector<std::string> move_methods, int max_iter)
 {
 
-  // Optimized feasibility check using departure_time <= arrival_constraint
-  auto quick_feasibility_check = [&](const schedule_struct& schedule, int b) -> bool {
-      // Service deadline constraint: departure_time <= arrival_constraint
-      if (schedule.blocks[b].departure_time > schedule.blocks[b].arrival_constraint) {
-        return false;
-      }
-      // Previous block continuity
-      if (b > 0 && schedule.blocks[b].arrival_time <= schedule.blocks[b - 1].departure_time) {
-        return false;
-      }
-      // Next block continuity
-      if (b + 1 < schedule.blocks.size() && 
-          schedule.blocks[b].departure_time >= schedule.blocks[b + 1].arrival_time) {
-        return false;
-      }
-      // Positive time validation
-      if (schedule.blocks[b].arrival_time <= 0 || schedule.blocks[b].departure_time <= 0) {
-        return false;
-      }
-      return true;
-  };
 
+  std::map<int, std::pair<std::string, double>> possible_moves;
   int k = 0;
   int iterval = 0;
+
+  for (int mov = 0; mov < move_methods.size(); mov++)
+  {
+    for (int dts = 0; dts < dt_move.size(); dts++)
+    {
+
+      std::pair<std::string, double> keyp = {move_methods[mov], dt_move[dts]};
+
+      possible_moves[k] = keyp;
+      k += 1;
+    }
+  }
 
   double deltaVminima_so_far = init_deltaV;
   schedule_struct optimal_schedule;
 
   int move_choice = 0;
 
-  std::random_device rd;          // used only once
-  std::mt19937 gen(rd());         // good quality PRNG
+  // std::random_device rd;                       // non-deterministic seed
+  // std::mt19937 gen(rd());                      // Mersenne Twister RNG
+  //
+  // std::uniform_real_distribution<> dist(0, 1); // range [1, 100]
 
+  std::random_device rd;                  // Seed source
+  std::mt19937 gen(rd());                 // Mersenne Twister RNG
+  std::bernoulli_distribution drop(0.40); // 40% chance of "true"
+
+  double decay = 0.9;
+
+  std::vector<int> tabu_blocks;
 
   while (iterval < max_iter)
   {
-    
-    std::shuffle(move_methods.begin(), move_methods.end(), gen);
+    // drop the move 40 % of the time
+
+    // A drop seems to sway the results farther away from the minima
+
+    /*if (drop(gen))
+    {
+       move_choice += 1;
+
+       if (move_choice >= (possible_moves.size() - 1))
+       {
+        move_choice -= move_choice;
+        move_choice += 1;
+       }
+
+        continue;
+    }*/
 
     iterval += 1;
-    std::string move_current = move_methods[move_choice];
+    std::pair<std::string, double> move_current = possible_moves[move_choice];
     // neighbourhood solutions
     std::vector<schedule_struct> list_of_schedules;
     std::vector<double> deltaVs_of_neighbourhood;
@@ -100,89 +112,86 @@ void vn_search(double &init_deltaV, schedule_struct &init_schedule, std::vector<
     double neighbourhood_minima;
 
     // loop over all moves
-    for (int b = 1; b < init_schedule.blocks.size(); b++)
+    for (int b = 0; b < init_schedule.blocks.size(); b++)
     {
-      // Block index validation and move applicability check
-      if (b >= init_schedule.blocks.size() || b < 0) {
-        continue;
-      }
-
-      bool move_applicable = false;
-
-      if ((move_current== "add" || move_current== "sub") && b > 0) {
-        move_applicable = true;
-      } else if ((move_current == "swap" || move_current == "swap_inv") && 
-                 (b > 0 && b < init_schedule.blocks.size() - 1)) {
-        move_applicable = true;
-      }
-
-      if (!move_applicable) {
-        continue;
-      }
 
       schedule_struct schedule_sol = init_schedule;
 
-      // Validate dt values
-      std::vector<double> dt = {0.5,0.3,0.2}; 
-      
-      std::srand(std::time(nullptr));
-      
-      int randomIndex = std::rand() % dt.size();
-
-      double largest_step_size = init_schedule.blocks[b].arrival_time - 
-                                  init_schedule.blocks[b-1].departure_time;
-
-      double dts = dt[randomIndex]*largest_step_size; 
       // apply move to schedule blocks
+      move_wrapper(schedule_sol.blocks, b, move_current.second, move_current.first,
+                   simfile);
 
-      if ((dts < 0)|| (std::isnan(dts)) || (std::isinf(dts))) {
+      double DeltaVMinimaopt;
 
-        list_of_schedules.push_back(schedule_sol);
-        deltaVs_of_neighbourhood.push_back(std::numeric_limits<double>::infinity());
-        
-        continue;
-      }
-      move_wrapper(schedule_sol.blocks, b, dts, move_current,simfile);
+      bool arrival_constraint_satisfied = (b >= 1) ? schedule_sol.blocks[b].arrival_time <= schedule_sol.blocks[b].arrival_constraint : true;
+      bool departure_constraint_satisfied = (b >= 1) ? schedule_sol.blocks[b - 1].departure_time >= schedule_sol.blocks[b - 1].arrival_constraint + schedule_sol.blocks[b - 1].service_duration : true;
 
-
-      double DeltaVMinimaopt = 0.0;
-
-      // Quick feasibility check with new constraint logic
-      if (!quick_feasibility_check(schedule_sol, b)){
-
-        list_of_schedules.push_back(schedule_sol);
-        deltaVs_of_neighbourhood.push_back(std::numeric_limits<double>::infinity());
-        continue;
-      
-      }
-
-      // Process arrival moves (mapped to "add"/"sub")
-      if ((move_current == "add" )|| (move_current == "sub"))
+      if (arrival_constraint_satisfied && departure_constraint_satisfied)
       {
+
+        bool is_not_last_or_first_block = ((b != (init_schedule.blocks.size() - 1)) && (b != 0));
+
+        if (is_not_last_or_first_block && (move_current.first == "move_dt2" || move_current.first == "move_dt2_inv"))
+        {
+          // std::cout << move_methods[m] << "\n";
+          find_optimal_trajectory_no_iter(
+              schedule_sol.blocks[b].satname,
+              schedule_sol.blocks[b + 1].satname,
+              schedule_sol.blocks[b].departure_time,
+              schedule_sol.blocks[b + 1].arrival_time,
+              simfile, DeltaVMinimaopt);
+
+          schedule_sol.blocks[b + 1].deltaV_arrival = DeltaVMinimaopt;
+
+          if (DeltaVMinimaopt <= init_schedule.blocks[b + 1].deltaV_arrival)
+          {
+
+            tabu_blocks.push_back(b + 1);
+          }
+
           find_optimal_trajectory_no_iter(
               schedule_sol.blocks[b - 1].satname,
               schedule_sol.blocks[b].satname,
               schedule_sol.blocks[b - 1].departure_time,
-              schedule_sol.blocks[b].arrival_time, simfile, DeltaVMinimaopt);
+              schedule_sol.blocks[b].arrival_time,
+              simfile, DeltaVMinimaopt);
 
           schedule_sol.blocks[b].deltaV_arrival = DeltaVMinimaopt;
-        
-      }
-
-      // Process swap moves with first/last block protection
-      if (((move_current == "swap") || (move_current == "swap_inv")) && 
-          (b+1 < init_schedule.blocks.size()-1))
-      {
-        // if move did nothing
-        if (schedule_sol.blocks[b].satname == init_schedule.blocks[b].satname){
-          
-          list_of_schedules.push_back(schedule_sol);
-          deltaVs_of_neighbourhood.push_back(std::numeric_limits<double>::infinity());
-          continue;
         }
 
-        // Swap moves already handle deltaV recalculation in swap_slots functions
-        // No additional deltaV calculation needed for performance
+        if ((move_current.first == "add departure") || (move_current.first == "sub departure"))
+        {
+
+          bool b_not_last_elem = b < (schedule_sol.blocks.size() - 1);
+
+          if (b_not_last_elem)
+          {
+            // finding lowest energy lambert transfer for given tof
+            find_optimal_trajectory_no_iter(
+                schedule_sol.blocks[b].satname,
+                schedule_sol.blocks[b + 1].satname,
+                schedule_sol.blocks[b].departure_time,
+                schedule_sol.blocks[b + 1].arrival_time, simfile, DeltaVMinimaopt);
+
+            schedule_sol.blocks[b + 1].deltaV_arrival = DeltaVMinimaopt;
+          }
+        }
+
+        if ((move_current.first == "add arrival") || (move_current.first == "sub arrival"))
+        {
+
+          if (b > 0)
+          {
+
+            find_optimal_trajectory_no_iter(
+                schedule_sol.blocks[b - 1].satname,
+                schedule_sol.blocks[b].satname,
+                schedule_sol.blocks[b - 1].departure_time,
+                schedule_sol.blocks[b].arrival_time, simfile, DeltaVMinimaopt);
+
+            schedule_sol.blocks[b].deltaV_arrival = DeltaVMinimaopt;
+          }
+        }
       }
       list_of_schedules.push_back(schedule_sol);
 
@@ -214,19 +223,38 @@ void vn_search(double &init_deltaV, schedule_struct &init_schedule, std::vector<
     if (neighbourhood_minima >= deltaVminima_so_far)
     {
       move_choice += 1;
-      if (move_choice -1 >= (move_methods.size()))
+      if (move_choice >= (possible_moves.size() - 1))
       {
         move_choice -= move_choice;
         move_choice += 1;
       }
 
+      /*
+      //std::cout <<"step = "<<random_step << std::endl;
+
+      // we need to wrap around the max array len
+
+
+      if(temp <= (random_step/(double)possible_moves.size()) ){
+
+      move_choice += random_step;
+      move_choice = move_choice % (possible_moves.size()-1);
+
+      }*/
+
+      // double move_choice = dist(gen);
 
       int index_minima = find_minima_index(deltaVs_of_neighbourhood);
 
+      // deltaVminima_so_far = std::abs(neighbourhood_minima);
+      // init_schedule = list_of_schedules[index_minima];
+
+      // move_choice +=1;
     }
 
     else
     {
+
       int index_minima = find_minima_index(deltaVs_of_neighbourhood);
 
       deltaVminima_so_far = std::abs(neighbourhood_minima);

@@ -85,7 +85,7 @@ int main(int argc, char *argv[])
   std::cout << "------------------Running Simulation---------------------" << std::endl;
 
 
-  force_model fmodel(true,false); 
+  force_model fmodel(false,false);
 
   double altitude_m = 700 * 1000;
   int num_planes = 5;
@@ -99,11 +99,11 @@ int main(int argc, char *argv[])
                  deg_to_rads(inclination_in_deg), fmodel, 1.0, deg_to_rads(inclinationDiff_in_deg));
 
   std::cout << "finished running sim" << "\n";
-  
-  std::cout << "------------------Running Local Search---------------------" << std::endl; 
+
+  std::cout << "------------------Running Local Search---------------------" << std::endl;
 
   // Setting up an initial schedule
-  DataFrame simfile("../data/WalkerDelta.csv");
+  DataFrame simfile("data/WalkerDelta.csv");
 
   std::vector<std::string> satnames = simfile["name"];
 
@@ -120,7 +120,9 @@ int main(int argc, char *argv[])
   std::vector<double> t_arrive;
 
   init_dep_arrival_times_strict_timespan(t_depart, t_arrive, t_final, service_time, num_sat_visits);
-  std::vector<std::string> sat_names_in_schedule = init_satname_array("service_1", client_satnames, false, num_sat_visits);
+  //std::vector<std::string> sat_names_in_schedule = init_satname_array("service_1", client_satnames, false, num_sat_visits);
+
+  std::vector<std::string> sat_names_in_schedule = init_satname_array(depot_name, client_satnames, false, num_sat_visits);
 
   show_orb_elems(simfile, sat_names_in_schedule);
 
@@ -131,24 +133,32 @@ int main(int argc, char *argv[])
   // ideal case (1 percent convergence)
   std::vector<double> move_size = {15000,10000,9000,8000,6000,5000, 4000, 3500, 3000, 2000, 1500, 1000, 500, 100}; //, 200, 400, 500, 600, 700, 1000, 1500, 2000, 2500, 2700, 3000};
   // formulation 1
-  std::vector<std::string> moves_to_consider = {"add departure", "sub arrival", "sub departure", "add arrival", "move_dt2", "move_dt2_inv", "move_sub_traj", "move_add_traj"};
+  std::vector<std::string> moves_to_consider = {"sub arrival",  "add arrival", "swap", "swap_inv"};
 
   // run_local_search_tfixed
-  
-  //schedule_struct ls = run_local_search_tfixed(simfile, move_size, moves_to_consider,
-    //                                      sat_names_in_schedule, t_depart, t_arrive,
-      //                                    deltaV_of_schedule_heuristic, service_time);
+
+  //schedule_struct ls = run_local_search(simfile, move_size, moves_to_consider,
+    //                                    sat_names_in_schedule, t_depart, t_arrive,
+      //                                  deltaV_of_schedule_heuristic, service_time);
 
   //view_schedule(ls);
-  
-    
-  // vn_search(deltaV_of_schedule_init, ls, move_size,simfile, service_time, moves_to_consider, 500);
+
+
+  //vn_search(deltaV_of_schedule_heuristic, ls, move_size, simfile, service_time, moves_to_consider, 500);
+
+  //run_vn_search(simfile,  move_size,
+    //            moves_to_consider,
+      //               sat_names_in_schedule,
+        //             t_depart, t_arrive,
+          //           deltaV_of_schedule_heuristic,service_time, 60);
+
+
 
   // run_vn_search_fixed_tarrive(simfile, move_size, moves_to_consider,
   //             sat_names_in_schedule, t_depart, t_arrive,
   //           deltaV_of_schedule_heuristic, service_time, 400);
 
-  std::cout << "Heuristic Delta V : " << deltaV_of_schedule_heuristic << "\n";
+  //std::cout << "Heuristic Delta V : " << deltaV_of_schedule_heuristic << "\n";
 
   std::cout << "------------------Running Comprehensive Scaling Comparison---------------------" << std::endl;
 
@@ -159,7 +169,7 @@ int main(int argc, char *argv[])
 
   // view_schedule(schedule_init);
 
-  
+
   /*std::cout << (int)schedule_init.blocks.size() << std::endl;
 
   finding_individual_minimas_dynamic_programming(schedule_init, simfile, 100);
@@ -200,86 +210,117 @@ int main(int argc, char *argv[])
 void run_comprehensive_scaling_tests()
 {
   std::cout << "Starting comprehensive scaling comparison..." << std::endl;
-  
+
   // Test configuration
   std::vector<int> visit_counts = {3, 4, 5, 6, 7, 8, 9, 10, 12};
   std::string depot_name = "service_1";
   std::vector<std::string> client_satnames = {"sat_0", "sat_3", "sat_10", "sat_1", "sat_4", "sat_12", "sat_15", "sat_20", "sat_14", "sat_18"};
   double service_time = 1000;
-  
+
   // Setup CSV output
   std::ofstream results_file("../data/scaling_comparison_results.csv");
   results_file << "visits,method,time_ms,deltaV,iterations,quality_gap,success" << std::endl;
-  
-  DataFrame simfile("../data/WalkerDelta.csv");
-  
+
+  DataFrame simfile("data/WalkerDelta.csv");
+
   for (int visits : visit_counts)
   {
     std::cout << "\n===== Testing " << visits << " visits =====" << std::endl;
-    
+
     // Setup instance
     double t_final = 150000 * visits / 8 - (150000 * visits / 8 % 100);
     std::vector<double> t_depart;
     std::vector<double> t_arrive;
-    
+
     init_dep_arrival_times_strict_timespan(t_depart, t_arrive, t_final, service_time, visits);
     std::vector<std::string> sat_names_in_schedule = init_satname_array(depot_name, client_satnames, false, visits);
-    
+
     double initdeltavDP = 0.0;
     schedule_struct schedule_base = create_schedule_lambert_only(initdeltavDP, t_arrive, t_depart, sat_names_in_schedule, simfile, service_time);
-    
-    view_schedule(schedule_base); 
-    
-    continue; 
+
+    view_schedule(schedule_base);
+
 
     // Test Exact Method
     std::cout << "Testing Exact Method..." << std::endl;
     try {
-      auto start_exact = std::chrono::high_resolution_clock::now();
-      double deltaV_exact = run_es(schedule_base);
+
+    auto start_exact = std::chrono::high_resolution_clock::now();
+      //double deltaV_exact = run_es(schedule_base);
+
+
+      schedule_struct opt_exact = branch_and_bound(schedule_base, simfile, initdeltavDP);
+      double deltaV_exact = deltavtotcalc(opt_exact);
+
+
       auto end_exact = std::chrono::high_resolution_clock::now();
-      
+
       double time_exact_ms = std::chrono::duration<double, std::milli>(end_exact - start_exact).count();
-      
+
       std::cout << "Exact Method - Time: " << time_exact_ms << "ms, DeltaV: " << deltaV_exact << std::endl;
-       
+
       // Write exact method results
       results_file << visits << ",exact," << time_exact_ms << "," << deltaV_exact << ",1,0.0,true" << std::endl;
-      
+
       // Test Local Search (using same base schedule)
       std::cout << "Testing Local Search..." << std::endl;
-      
+
       std::vector<double> move_size = {15000,10000,9000,8000,6000,5000, 4000, 3500, 3000, 2000, 1500, 1000, 500, 100};
-      std::vector<std::string> moves_to_consider = {"add departure", "sub arrival", "sub departure", "add arrival", "move_dt2", "move_dt2_inv", "move_sub_traj", "move_add_traj"};
-      
-      auto start_ls = std::chrono::high_resolution_clock::now();
+      std::vector<std::string> moves_to_consider = { "sub", "add","swap", "swap_inv"};
+
+
       double deltaV_ls = initdeltavDP;
-      schedule_struct schedule_ls = run_local_search(simfile, move_size, moves_to_consider,
-                                                   sat_names_in_schedule, t_depart, t_arrive,
-                                                   deltaV_ls, service_time);
+      auto start_ls = std::chrono::high_resolution_clock::now();
+
+
+      run_vn_search( simfile,  move_size,
+                     moves_to_consider,
+                     sat_names_in_schedule,
+                      t_depart, t_arrive,
+                     deltaV_ls,service_time, 10);
+
+      //vn_search(deltaV_ls, schedule_base, move_size, simfile, service_time, moves_to_consider, 200);
+
+
+      //view_schedule(schedule_base);
+      //void vn_search(double &init_deltaV, schedule_struct &init_schedule, std::vector<double> dt_move,
+        //       DataFrame simfile, double service_time, std::vector<std::string> move_methods, int max_iter)
+
+      //run_local_search( simfile, move_size, moves_to_consider,
+        //                sat_names_in_schedule, t_depart, t_arrive,deltaV_ls,service_time);
+
+
+
+
+      //schedule_base = local_search_opt_schedule_lambert_only_late_acceptance(deltaV_ls, schedule_base, move_size,
+                                                                              //simfile, service_time, moves_to_consider);
+
+      //view_schedule(schedule_base);
+
       auto end_ls = std::chrono::high_resolution_clock::now();
-      
+
       double time_ls_ms = std::chrono::duration<double, std::milli>(end_ls - start_ls).count();
-      
+
       // Calculate quality gap
       double quality_gap = std::abs(deltaV_ls - deltaV_exact) / deltaV_exact * 100.0;
-      
-      std::cout << "Local Search - Time: " << time_ls_ms << "ms, DeltaV: " << deltaV_ls 
+
+      std::cout << "Local Search - Time: " << time_ls_ms << "ms, DeltaV: " << deltaV_ls
                 << ", Gap: " << quality_gap << "%" << std::endl;
-      
+
       // Write local search results
-      results_file << visits << ",local_search," << time_ls_ms << "," << deltaV_ls << ",0," 
+      results_file << visits << ",local_search," << time_ls_ms << "," << deltaV_ls << ",0,"
                   << quality_gap << ",true" << std::endl;
-                  
-    } catch (const std::exception& e) {
+
+    } catch (const std::exception& e){
       std::cout << "Error testing " << visits << " visits: " << e.what() << std::endl;
       results_file << visits << ",exact,0,0,0,0,false" << std::endl;
       results_file << visits << ",local_search,0,0,0,0,false" << std::endl;
     }
-    
+
     std::cout << "Completed " << visits << " visits" << std::endl;
+
   }
-  
+
   results_file.close();
   std::cout << "\nScaling comparison completed! Results saved to ../data/scaling_comparison_results.csv" << std::endl;
 }

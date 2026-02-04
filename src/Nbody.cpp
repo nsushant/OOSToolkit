@@ -543,11 +543,16 @@ void run_simulation(    std::string save_to_file, std::string arrangement, doubl
         if(step % 10 == 0){
 
             for(size_t i=0;i<sats.size();i++){
-
+                
+                // Calculate orbital elements for current state
+                orbital_elements elems = orb_elems_from_rv(sats[i].r, sats[i].v);
             
                 csv << t << "," << i << "," << sats[i].satname << ","
                     << sats[i].r(0) << "," << sats[i].r(1) << "," << sats[i].r(2) << ","
-                    << sats[i].v(0) << "," << sats[i].v(1) << "," << sats[i].v(2) << "\n";
+                    << sats[i].v(0) << "," << sats[i].v(1) << "," << sats[i].v(2) << ","
+                    << elems.semi_major_axis << "," << elems.eccentricity << ","
+                    << elems.inclination << "," << elems.RAAN << ","
+                    << elems.augment_of_periapsis << "," << elems.true_anomaly << "\n";
             
             }
 
@@ -709,7 +714,7 @@ class Simulation{
         void run_simulation(double t_end,double dt, std::string file_to_write){
 
             std::ofstream csv("../data/"+file_to_write);
-            csv << "time_s,index,name,x,y,z,vx,vy,vz\n";
+csv << "time_s,index,name,x,y,z,vx,vy,vz,semi_major_axis,eccentricity,inclination,RAAN,arg_periapsis,true_anomaly\n";
 
             double t = 0.0; 
             std::cout<<"Running Simulation"; 

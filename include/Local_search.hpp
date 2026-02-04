@@ -27,6 +27,8 @@ struct task_block
     double service_duration = 0.0;
     double arrival_constraint = 0.0;
     double departure_time = arrival_time + service_duration;
+    double deltaVbudget = 0.0; 
+
 };
 
 struct schedule_struct
@@ -46,7 +48,8 @@ void move_add_departure(std::vector<task_block> &blocks, int b_index, double dt)
 void move_sub_departure(std::vector<task_block> &blocks, int b_index, double dt);
 void move_sub_arrival(std::vector<task_block> &blocks, int b_index, double dt);
 
-void swap_slots(std::vector<task_block> &blocks, int b_index, double dt, DataFrame simfile);
+void swap_slots(std::vector<task_block> &blocks, int b_index, DataFrame simfile, int numslots);
+void swap_slots_inv(std::vector<task_block> &blocks, int b_index, DataFrame simfile, int numslots);
 
 void move_wrapper(std::vector<task_block> &blocks, int b_index, double dt, std::string method, DataFrame simfile);
 
@@ -74,7 +77,7 @@ schedule_struct local_search_opt_schedule_lambert_only(double &init_deltaV, sche
                                                        std::vector<double> dt_move, DataFrame simfile, double service_time,
                                                        std::vector<std::string> move_methods);
 
-schedule_struct local_search_opt_schedule(double init_deltaV, schedule_struct init_schedule, double dt_move, DataFrame simfile);
+//schedule_struct local_search_opt_schedule(double init_deltaV, schedule_struct init_schedule, double dt_move, DataFrame simfile);
 
 schedule_struct run_local_search(DataFrame simfile, std::vector<double> move_size,
                                  std::vector<std::string> moves_to_consider,

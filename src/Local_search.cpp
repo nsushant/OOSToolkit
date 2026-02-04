@@ -13,6 +13,7 @@
 #include <string>
 #include <vector>
 #include <random>
+#include <chrono>
 /*
 Author : S. Nigudkar (2025)
 
@@ -22,6 +23,8 @@ search.
 */
 
 // moves
+
+
 
 void move_sub_traj(std::vector<task_block> &blocks, int b_index, double dt)
 {
@@ -36,7 +39,8 @@ void move_sub_traj(std::vector<task_block> &blocks, int b_index, double dt)
       {
 
         blocks[b_index].arrival_time += dt;
-        blocks[b_index].departure_time -= dt;
+        //blocks[b_index].departure_time -= dt;
+        blocks[b_index-1].arrival_time-=dt;
 
       }
     }
@@ -45,10 +49,12 @@ void move_sub_traj(std::vector<task_block> &blocks, int b_index, double dt)
     {
 
       blocks[b_index].arrival_time += 0.0;
-      blocks[b_index].departure_time -= 0.0;
+      //blocks[b_index - 1].
+      //blocks[b_index].departure_time -= 0.0;
     }
   }
 }
+
 
 void move_add_traj(std::vector<task_block> &blocks, int b_index, double dt)
 {
@@ -72,6 +78,9 @@ void move_add_traj(std::vector<task_block> &blocks, int b_index, double dt)
   }
 }
 
+
+
+
 void move_dt(task_block &tb, double dt)
 {
 
@@ -81,6 +90,8 @@ void move_dt(task_block &tb, double dt)
   tb.arrival_time -= dt;
   tb.departure_time -= dt;
 }
+
+
 
 void move_dt2(std::vector<task_block> &blocks, int b_index, double dt)
 {
@@ -98,19 +109,16 @@ void move_dt2(std::vector<task_block> &blocks, int b_index, double dt)
       blocks[b_index].arrival_time -= 0.0;
     }
 
-    if (b_index == ((int)blocks.size() - 1))
-    {
 
-      blocks[b_index].departure_time += 0;
+    if(blocks[b_index - 1].departure_time - dt > blocks[b_index - 1].departure_time){
+
+
     }
 
-    else if (blocks[b_index].departure_time + dt < blocks[b_index + 1].arrival_time)
-    {
 
-      blocks[b_index].departure_time += dt;
-    }
   }
 }
+
 
 void move_dt2_inv(std::vector<task_block> &blocks, int b_index, double dt)
 {
@@ -144,6 +152,8 @@ void move_dt2_inv(std::vector<task_block> &blocks, int b_index, double dt)
   }
 }
 
+
+
 void move_add_arrival(std::vector<task_block> &blocks, int b_index, double dt)
 {
 
@@ -152,16 +162,17 @@ void move_add_arrival(std::vector<task_block> &blocks, int b_index, double dt)
   {
 
     // ensure that the addition in arrival time does not make arrival occur after the departure time
-    if ((blocks[b_index].arrival_time + dt) <= blocks[b_index].arrival_constraint)
+    if ((blocks[b_index].departure_time + dt) <= blocks[b_index].arrival_constraint)
     {
 
       blocks[b_index].arrival_time += dt;
-    }
 
-    // since the departure time of the last block is 0
+    }
 
   }
 }
+
+
 void move_add_departure(std::vector<task_block> &blocks, int b_index,
                         double dt)
 {
@@ -196,6 +207,8 @@ void move_sub_departure(std::vector<task_block> &blocks, int b_index,
   }
 }
 
+
+
 void move_sub_arrival(std::vector<task_block> &blocks, int b_index, double dt)
 {
 
@@ -211,145 +224,247 @@ void move_sub_arrival(std::vector<task_block> &blocks, int b_index, double dt)
   }
 }
 
+
+
 void swap_slots(std::vector<task_block> &blocks, int b_index, double dt,
-                DataFrame simfile)
+                DataFrame simfile, int numslots)
 {
+
+  // bounds checking - ensure we don't access blocks beyond array bounds
+  if (b_index < 0 || b_index >= blocks.size() || b_index + numslots >= blocks.size() || 
+      b_index + numslots + 1 >= blocks.size()) {
+    std::cout << "invalid switch - b_index=" << b_index << ", numslots=" << numslots << ", size=" << blocks.size() << std::endl;
+    return;
+  }
 
   double deadline = blocks[b_index].arrival_constraint;
 
   // get valid blocks
   std::vector<int> candidate_blocks;
 
-  if (b_index % 2 == 0)
+  task_block copyblock = blocks[b_index + numslots];
+
+  // generate a random number
+  
+  int bnext = b_index + numslots; 
+
+  bool overlap_caused = ( (   (b_index + numslots + 1 < blocks.size()) ? 
+                              blocks[b_index].arrival_time +  blocks[b_index+numslots].service_duration  >= blocks[b_index+numslots].arrival_time : 
+                              false) || 
+                              ((b_index + numslots + 1 < blocks.size()) ? 
+                              blocks[b_index+numslots].arrival_time +   blocks[b_index].service_duration  >= blocks[b_index+numslots+1].arrival_time : 
+                              false)
+                         );
+
+
+
+
+  bool arrival_deadline_violated = (  ( (bnext + 1 < blocks.size()) ? 
+                                      blocks[b_index].arrival_time +  blocks[bnext].service_duration   >= blocks[bnext].arrival_constraint : 
+                                      false) 
+                                    ||
+                                      
+                                      ( (b_index >= 0) ? 
+                                      blocks[bnext].arrival_time  +  blocks[b_index].service_duration  >= blocks[b_index].arrival_constraint : 
+                                      false) 
+                                    ); 
+
+
+  if (overlap_caused)
   {
 
-    task_block copyblock = blocks[b_index + 2];
+    std::cout<<"invalid switch"<<"\n";
+  }
 
-    if (copyblock.departure_time < deadline)
-    {
+  if (arrival_deadline_violated){
 
-      double service_minimum =
-          blocks[b_index].arrival_time + blocks[b_index].service_duration;
+    std::cout<<"arrival deadline violation"<<"\n"; 
+  }
+    
 
-      blocks[b_index + 2].satname = blocks[b_index].satname;
-      blocks[b_index + 2].service_duration = blocks[b_index].service_duration;
-      blocks[b_index + 2].arrival_constraint = blocks[b_index].arrival_constraint;
 
+  else if (b_index > 0)
+  {
+
+      blocks[b_index + numslots].satname = blocks[b_index].satname;
+      blocks[b_index + numslots].service_duration = blocks[b_index].service_duration;
+      blocks[b_index + numslots].arrival_constraint = blocks[b_index].arrival_constraint;
+      
+
+      if(blocks[b_index + numslots].departure_time > blocks[b_index + numslots].arrival_constraint){
+
+        std::cout << "invalid swap"; 
+      }
+      
       blocks[b_index].arrival_constraint = copyblock.arrival_constraint;
       blocks[b_index].service_duration = copyblock.service_duration;
       blocks[b_index].satname = copyblock.satname;
-
-      bool timeslot_not_long_enough = (blocks[b_index + 2].departure_time <
-                                       (blocks[b_index + 2].arrival_time +
-                                        blocks[b_index + 2].service_duration));
-
-      if (timeslot_not_long_enough)
-      {
-
-        double time_adjustment_needed = (blocks[b_index + 2].arrival_time +
-                                         blocks[b_index + 2].service_duration) -
-                                        blocks[b_index + 2].departure_time;
-
-        blocks[b_index + 2].arrival_time -= time_adjustment_needed;
-
-        blocks[b_index + 1].departure_time -= time_adjustment_needed;
-        blocks[b_index + 1].arrival_time -= time_adjustment_needed;
-
-        blocks[b_index].departure_time -= time_adjustment_needed;
-
-        std::cout << "proposed switch was invalid, departure time < "
-                     "service_time + arrival_time, adjustment made";
-      }
-
-      bool timeslot_not_long_enough_2 =
-          (blocks[b_index].departure_time <
-           (blocks[b_index].arrival_time + blocks[b_index].service_duration));
-
-      if (timeslot_not_long_enough_2)
-      {
-
-        double time_adjustment_needed =
-            (blocks[b_index].arrival_time + blocks[b_index].service_duration) -
-            blocks[b_index].departure_time;
-
-        blocks[b_index].departure_time += time_adjustment_needed;
-
-        blocks[b_index + 1].departure_time += time_adjustment_needed;
-        blocks[b_index + 1].arrival_time += time_adjustment_needed;
-
-        blocks[b_index + 2].arrival_time += time_adjustment_needed;
-      }
 
       // recalculate delta Vs
       find_optimal_trajectory_no_iter(
           blocks[b_index - 1].satname, blocks[b_index].satname,
           blocks[b_index - 1].departure_time, blocks[b_index].arrival_time,
-          simfile, blocks[b_index].deltaV_arrival);
+          simfile, blocks[b_index].deltaV_arrival);//"edelbaum");
+      
       find_optimal_trajectory_no_iter(
           blocks[b_index].satname, blocks[b_index + 1].satname,
           blocks[b_index].departure_time, blocks[b_index + 1].arrival_time,
-          simfile, blocks[b_index + 1].deltaV_arrival);
+          simfile, blocks[b_index + 1].deltaV_arrival);//,"edelbaum");
+
+      if(numslots > 1){
+
+        find_optimal_trajectory_no_iter(
+          blocks[b_index + numslots - 1].satname, blocks[b_index + numslots].satname,
+          blocks[b_index + numslots - 1].departure_time, blocks[b_index + numslots].arrival_time,
+          simfile, blocks[b_index + numslots].deltaV_arrival);//,"edelbaum");
+
+      }
+
       find_optimal_trajectory_no_iter(
-          blocks[b_index + 1].satname, blocks[b_index + 2].satname,
-          blocks[b_index + 1].departure_time, blocks[b_index + 2].arrival_time,
-          simfile, blocks[b_index + 2].deltaV_arrival);
-      find_optimal_trajectory_no_iter(
-          blocks[b_index + 2].satname, blocks[b_index + 3].satname,
-          blocks[b_index + 2].departure_time, blocks[b_index + 3].arrival_time,
-          simfile, blocks[b_index + 3].deltaV_arrival);
-    }
+          blocks[b_index + numslots].satname, blocks[b_index + numslots + 1].satname,
+          blocks[b_index + numslots].departure_time, blocks[b_index + numslots + 1].arrival_time,
+          simfile, blocks[b_index + numslots + 1].deltaV_arrival);//,"edelbaum");
+
   }
 }
+
+
+
+
+
+
+void swap_slots_inv(std::vector<task_block> &blocks, int b_index, double dt,
+                DataFrame simfile, int numslots)
+{
+
+  // bounds checking
+  if (b_index < 0 || b_index >= blocks.size() || b_index - numslots < 0) {
+    std::cout << "invalid switch";
+    return;
+  }
+
+
+  int bprev = b_index - numslots;
+
+
+  double deadline = blocks[b_index].arrival_constraint;
+
+  // get valid blocks
+  std::vector<int> candidate_blocks;
+
+  task_block copyblock = blocks[bprev];
+
+
+  bool overlap_caused = (   ( ((bprev > 0 ) && (b_index + 2 <= blocks.size())) ? 
+                              blocks[b_index].arrival_time +  blocks[bprev].service_duration  >= blocks[b_index + 1].arrival_time : 
+                              false) 
+                            || 
+                            
+                            ( (bprev + 2 < blocks.size()) ? 
+                              blocks[bprev].arrival_time +   blocks[b_index].service_duration  >= blocks[bprev + 1].arrival_time : 
+                              false)
+                        );
+
+
+  bool arrival_deadline_violated = (  ( ((bprev > 0 ) && (b_index + 2 <= blocks.size())) ? 
+                                      blocks[b_index].arrival_time +  blocks[bprev].service_duration   >= blocks[bprev].arrival_constraint : 
+                                      false) 
+                                    ||
+                                      
+                                      ( (bprev + 2 <= blocks.size()) ? 
+                                      blocks[bprev].arrival_time  +  blocks[b_index].service_duration  >= blocks[b_index].arrival_constraint : 
+                                      false) 
+                                    ); 
+    
+  if (overlap_caused)
+  {
+  
+    std::cout<<"invalid switch" << "\n";
+  
+  }
+
+
+  if (arrival_deadline_violated){
+
+    std::cout << "arrival deadline violation" << "\n"; 
+  
+  }
+
+  else if( bprev > 0 ){
+
+    //recalculating 
+
+    blocks[bprev].satname = blocks[b_index].satname;
+    blocks[bprev].service_duration = blocks[b_index].service_duration;
+    blocks[bprev].arrival_constraint = blocks[b_index].arrival_constraint;
+
+    blocks[b_index].arrival_constraint = copyblock.arrival_constraint;
+    blocks[b_index].service_duration = copyblock.service_duration;
+    blocks[b_index].satname = copyblock.satname;
+
+    if((bprev - 1) > 0){
+    // recalculate delta Vs
+    std::cout << "DEBUG_CALL1: swap_slots_inv calling find_optimal_trajectory_no_iter" << std::endl;
+    std::cout << "  blocks[" << b_index - 1 << "].satname = '" << blocks[b_index - 1].satname << "'" << std::endl;
+    std::cout << "  blocks[" << b_index << "].satname = '" << blocks[b_index].satname << "'" << std::endl;
+    find_optimal_trajectory_no_iter(
+          blocks[b_index - 1].satname, blocks[b_index].satname,
+          blocks[b_index - 1].departure_time, blocks[b_index].arrival_time,
+          simfile, blocks[b_index].deltaV_arrival);//,"edelbaum");
+    }
+    std::cout << "DEBUG_CALL2: swap_slots_inv calling find_optimal_trajectory_no_iter" << std::endl;
+    std::cout << "  blocks[" << b_index << "].satname = '" << blocks[b_index].satname << "'" << std::endl;
+    std::cout << "  blocks[" << b_index + 1 << "].satname = '" << blocks[b_index + 1].satname << "'" << std::endl;
+    find_optimal_trajectory_no_iter(
+          blocks[b_index].satname, blocks[b_index + 1].satname,
+          blocks[b_index].departure_time, blocks[b_index + 1].arrival_time,
+          simfile, blocks[b_index + 1].deltaV_arrival);//,"edelbaum");
+
+    std::cout << "DEBUG_CALL3: swap_slots_inv calling find_optimal_trajectory_no_iter" << std::endl;
+    std::cout << "  blocks[" << bprev << "].satname = '" << blocks[bprev].satname << "'" << std::endl;
+    std::cout << "  blocks[" << bprev + 1 << "].satname = '" << blocks[bprev + 1].satname << "'" << std::endl;
+    find_optimal_trajectory_no_iter(
+          blocks[bprev].satname, blocks[bprev + 1].satname,
+          blocks[bprev].departure_time, blocks[bprev + 1].arrival_time,
+          simfile, blocks[bprev + 1].deltaV_arrival);//,"edelbaum");
+
+    if((bprev - 1) > 0){
+    
+      std::cout << "DEBUG_CALL4: swap_slots_inv calling find_optimal_trajectory_no_iter" << std::endl;
+      std::cout << "  blocks[" << bprev - 1 << "].satname = '" << blocks[bprev - 1].satname << "'" << std::endl;
+      std::cout << "  blocks[" << bprev << "].satname = '" << blocks[bprev].satname << "'" << std::endl;
+      find_optimal_trajectory_no_iter(
+          blocks[bprev - 1 ].satname, blocks[bprev].satname,
+          blocks[bprev - 1 ].departure_time, blocks[bprev].arrival_time,
+          simfile, blocks[bprev].deltaV_arrival);//,"edelbaum");
+    }
+
+  }
+}
+
+
 
 void move_wrapper(std::vector<task_block> &blocks, int b_index, double dt,
                   std::string method, DataFrame simfile)
 {
 
-  if (method == "add arrival")
+  if (method == "add")
   {
     move_add_arrival(blocks, b_index, dt);
   }
-  if (method == "add departure")
-  {
-    move_add_departure(blocks, b_index, dt);
-  }
-  if (method == "sub arrival")
+  else if (method == "sub")
   {
     move_sub_arrival(blocks, b_index, dt);
   }
-
-  if (method == "sub departure")
+  else if (method == "swap")
   {
-    move_sub_departure(blocks, b_index, dt);
+    swap_slots(blocks, b_index, dt, simfile, 1);
+  }
+  else if (method == "swap_inv")
+  {
+    swap_slots_inv(blocks, b_index, dt, simfile, 1);
   }
 
-  if (method == "move_dt2")
-  {
-    move_dt2(blocks, b_index, dt);
-  }
-
-  if (method == "move_dt2_inv")
-  {
-
-    move_dt2_inv(blocks, b_index, dt);
-  }
-
-  if (method == "swap_slots")
-  {
-    swap_slots(blocks, b_index, dt, simfile);
-  }
-
-  if (method == "move_add_traj")
-  {
-
-    move_add_traj(blocks, b_index, dt);
-  }
-
-  if (method == "move_sub_traj")
-  {
-
-    move_sub_traj(blocks, b_index, dt);
-  }
 }
 
 // allows you to print out the schedule struct in a readable format
@@ -582,7 +697,7 @@ schedule_struct create_schedule_lambert_only(
     else
     {
 
-      block.arrival_constraint = arrival_times[i];
+      block.arrival_constraint = departure_times[departure_times.size() - 1];
     }
 
     double deltaV_transfer = 0.0;
@@ -591,7 +706,7 @@ schedule_struct create_schedule_lambert_only(
 
     find_optimal_trajectory_no_iter(satnames[i - 1], block.satname,
                                     departure_times[i - 1], block.arrival_time,
-                                    simfile, deltaV_transfer,"edelbaum");
+                                    simfile, deltaV_transfer);
 
 
 
@@ -623,7 +738,6 @@ schedule_struct local_search_opt_schedule_lambert_only(double &init_deltaV, sche
 
   while (true)
   {
-
     // neighbourhood solutions
     std::vector<schedule_struct> list_of_schedules;
 
@@ -639,22 +753,30 @@ schedule_struct local_search_opt_schedule_lambert_only(double &init_deltaV, sche
 
     // loop over all moves
 
-    for (int m = 0; m < move_methods.size(); m++)
-    {
-      for (int d = 0; d < dt_move.size(); d++)
-      {
+    //for (int m = 0; m < move_methods.size(); m++)
+    //{
+      //for (int d = 0; d < dt_move.size(); d++)
+      //{
         for (int b = 0; b < init_schedule.blocks.size(); b++)
+        {
+          
+
+        for (int m = 0; m < move_methods.size(); m++)
+        {
+        for (int d = 0; d < dt_move.size(); d++)
         {
 
           schedule_struct schedule_sol = init_schedule;
 
+
+
           // apply move to schedule blocks
           move_wrapper(schedule_sol.blocks, b, dt_move[d], move_methods[m],
                        simfile);
+          
 
           if ((schedule_sol.blocks[b].departure_time == init_schedule.blocks[b].departure_time) && (schedule_sol.blocks[b].arrival_time == init_schedule.blocks[b].arrival_time))
           {
-
             continue;
           }
 
@@ -669,37 +791,6 @@ schedule_struct local_search_opt_schedule_lambert_only(double &init_deltaV, sche
               && (schedule_sol.blocks[b].departure_time < schedule_sol.blocks[b + 1].arrival_time));
 
           // if the schedule created by the move is feasible
-          if (arrival_constraint_satisfied && departure_constraint_satisfied)
-          {
-
-            if (move_methods[m] == "move_dt2" || move_methods[m] == "move_dt2_inv")
-            {
-
-              if ((b != (init_schedule.blocks.size() - 1)) && (b != 0))
-              {
-
-                // std::cout << move_methods[m] << "\n";
-                DeltaVMinimaopt = 0.0;
-                find_optimal_trajectory_no_iter(
-                    schedule_sol.blocks[b].satname,
-                    schedule_sol.blocks[b + 1].satname,
-                    schedule_sol.blocks[b].departure_time,
-                    schedule_sol.blocks[b + 1].arrival_time,
-                    simfile, DeltaVMinimaopt);
-
-                schedule_sol.blocks[b + 1].deltaV_arrival = DeltaVMinimaopt;
-                DeltaVMinimaopt = 0.0;
-                find_optimal_trajectory_no_iter(
-                    schedule_sol.blocks[b - 1].satname,
-                    schedule_sol.blocks[b].satname,
-                    schedule_sol.blocks[b - 1].departure_time,
-                    schedule_sol.blocks[b].arrival_time,
-                    simfile, DeltaVMinimaopt);
-
-                schedule_sol.blocks[b].deltaV_arrival = DeltaVMinimaopt;
-              }
-            }
-          }
 
           if ((move_methods[m] == "add departure") || (move_methods[m] == "sub departure"))
           {
@@ -712,7 +803,8 @@ schedule_struct local_search_opt_schedule_lambert_only(double &init_deltaV, sche
                   schedule_sol.blocks[b].satname,
                   schedule_sol.blocks[b + 1].satname,
                   schedule_sol.blocks[b].departure_time,
-                  schedule_sol.blocks[b + 1].arrival_time, simfile, DeltaVMinimaopt);
+                  schedule_sol.blocks[b + 1].arrival_time, simfile, 
+                  DeltaVMinimaopt);
 
               schedule_sol.blocks[b + 1].deltaV_arrival = DeltaVMinimaopt;
             }
@@ -728,28 +820,13 @@ schedule_struct local_search_opt_schedule_lambert_only(double &init_deltaV, sche
                   schedule_sol.blocks[b - 1].satname,
                   schedule_sol.blocks[b].satname,
                   schedule_sol.blocks[b - 1].departure_time,
-                  schedule_sol.blocks[b].arrival_time, simfile, DeltaVMinimaopt);
+                  schedule_sol.blocks[b].arrival_time, simfile, 
+                  DeltaVMinimaopt);
 
               schedule_sol.blocks[b].deltaV_arrival = DeltaVMinimaopt;
             }
           }
-
-          if ((move_methods[m] == "move_add_traj") || (move_methods[m] == "move_sub_traj"))
-          {
-
-            if (arrival_constraint_satisfied)
-            {
-              DeltaVMinimaopt = 0.0;
-
-              find_optimal_trajectory_no_iter(
-                  schedule_sol.blocks[b - 1].satname,
-                  schedule_sol.blocks[b].satname,
-                  schedule_sol.blocks[b - 1].departure_time,
-                  schedule_sol.blocks[b].arrival_time, simfile, DeltaVMinimaopt);
-
-              schedule_sol.blocks[b].deltaV_arrival = DeltaVMinimaopt;
-            }
-          }
+        
 
           list_of_schedules.push_back(schedule_sol);
 
@@ -824,6 +901,8 @@ schedule_struct local_search_opt_schedule_lambert_only(double &init_deltaV, sche
 
   return init_schedule;
 }
+
+
 
 schedule_struct local_search_opt_schedule(double init_deltaV,
                                           schedule_struct init_schedule,
@@ -944,7 +1023,7 @@ schedule_struct run_local_search(DataFrame simfile, std::vector<double> move_siz
 
   // Now the optimal schedule is calculated using local search
   schedule_struct findopt_schedule = local_search_opt_schedule_lambert_only_late_acceptance(deltaV_of_schedule, init_schedule, move_size,
-                                                                                            simfile, service_time, moves_to_consider);
+                                                                            simfile, service_time, moves_to_consider);
 
   std::cout << "\n";
 
@@ -994,8 +1073,8 @@ schedule_struct run_local_search_tfixed(DataFrame simfile, std::vector<double> m
 
     pair_deltaV = init_schedule.blocks[b - 1].deltaV_arrival + init_schedule.blocks[b].deltaV_arrival ; //+ init_schedule.blocks[b+1].deltaV_arrival;
 
-    schedule_struct findopt_schedule = local_search_opt_schedule_lambert_only_late_acceptance(pair_deltaV, pair_to_pass, move_size,
-                                                                                              simfile, service_time, moves_to_consider);
+    schedule_struct findopt_schedule = local_search_opt_schedule_lambert_only(pair_deltaV, pair_to_pass, move_size,
+                                                                              simfile, service_time, moves_to_consider);
 
     init_schedule.blocks[b - 1] = findopt_schedule.blocks[0];
     init_schedule.blocks[b] = findopt_schedule.blocks[1];
@@ -1062,24 +1141,21 @@ std::vector<size_t> argsort(const std::vector<double>& v) {
 
 
 
-double round_down_100 (double x) {
+double round_down_1000 (double x) {
 
     
-    double step = std::max(100.0,std::floor(x / 100.0) * 100.0);
+    double step = std::max(1000.0,std::floor(x / 1000.0) * 1000.0);
 
-    if (step == 100.0){
-
-      return 0.0; 
+    if (step == 1000.0){
+        return 1000.0;
     }
 
-    else{
+    return step;
 
-      return step; 
-    }
-};
+}
 
 schedule_struct local_search_opt_schedule_lambert_only_late_acceptance(double &init_deltaV, schedule_struct init_schedule, std::vector<double> dt_movein, 
-                                                                       DataFrame simfile, double service_time, std::vector<std::string> move_methods)
+                                                                        DataFrame simfile, double service_time, std::vector<std::string> move_methods)
 {
 
 
@@ -1135,7 +1211,7 @@ schedule_struct local_search_opt_schedule_lambert_only_late_acceptance(double &i
     return true;
   };
   
-// Deterministic step size generation function - returns all valid moves
+  // Deterministic step size generation function - returns all valid moves
   auto generate_all_valid_moves = [&](double largest_stepsize) -> std::vector<double> {
     // Add temporal validation and bounds checking
     if (largest_stepsize <= 0 || largest_stepsize > 1e15 || std::isnan(largest_stepsize) || std::isinf(largest_stepsize)) {
@@ -1144,18 +1220,18 @@ schedule_struct local_search_opt_schedule_lambert_only_late_acceptance(double &i
     }
     
     std::vector<double> all_steps = {
-        round_down_100(largest_stepsize * 0.60),
-        round_down_100(largest_stepsize * 0.50),
-        round_down_100(largest_stepsize * 0.30),
-        round_down_100(largest_stepsize * 0.20),
-        round_down_100(largest_stepsize * 0.10),
-        100.0  // Always included
+        round_down_1000(largest_stepsize * 0.60),
+        round_down_1000(largest_stepsize * 0.50),
+        round_down_1000(largest_stepsize * 0.30),
+        round_down_1000(largest_stepsize * 0.20),
+        round_down_1000(largest_stepsize * 0.10),
+        1000.0  // Always included
     };
     
-    // Remove invalid steps (< 100.0) and duplicates using vector
+    // Remove invalid steps (< 1000.0) and duplicates using vector
     std::vector<double> unique_steps;
     for (double step : all_steps) {
-      if (step >= 100.0) {
+      if (step >= 1000.0) {
         // Check if already in vector to avoid duplicates
         if (std::find(unique_steps.begin(), unique_steps.end(), step) == unique_steps.end()) {
           unique_steps.push_back(step);
@@ -1164,7 +1240,7 @@ schedule_struct local_search_opt_schedule_lambert_only_late_acceptance(double &i
     }
     
     if (unique_steps.empty()) {
-      return {100.0};
+      return {1000.0};
     }
     
     // Sort steps in descending order for systematic exploration
@@ -1177,16 +1253,15 @@ schedule_struct local_search_opt_schedule_lambert_only_late_acceptance(double &i
   
   while (true)
   {
-    restart_iteration:
     iteration_count++;
     bool improvement_found_this_iteration = false;
     processed_blocks_this_iteration.clear();
 
     // Decrease lifetimes in ignore list and remove expired entries
     for (auto it = ignore_list.begin(); it != ignore_list.end(); ) {
-      it->second--;  // Decrease lifetime
+      it->second--;  // Decrease lifetime (negatively increment second entry in pair)
       if (it->second <= 0) {
-        std::cout << "Reactivating block " << it->first << " from ignore list\n";
+        std::cout << "Reactivating block" << it->first << " from ignore list"<<"\n";
         it = ignore_list.erase(it);  // Remove expired entry
       } else {
         ++it;
@@ -1210,47 +1285,111 @@ schedule_struct local_search_opt_schedule_lambert_only_late_acceptance(double &i
     // loop over block order 
     // generate neighbourhodd of moves until an improvement is found
     // thereafter 
-    
-
+  
     //std::vector<double> block_order; 
 
     
-    std::vector<double> block_order; 
+    //std::vector<double> block_order; 
     
-    for (task_block tbo : init_schedule.blocks)
-    {
+    //for (task_block tbo : init_schedule.blocks)
+    //{
 
-      block_order.push_back(tbo.deltaV_arrival);
+      //block_order.push_back(tbo.deltaV_arrival);
 
-    }
+    //}
     
-    std::vector<size_t> b_order = argsort(block_order); 
+    //std::vector<size_t> b_order = argsort(block_order); 
     
-    for (size_t b : b_order)
-    { // to make the move sizes adaptive 
+    for (int b = 0 ; b + 1 <= init_schedule.blocks.size() ; b++)
+    { 
+      // to make the move sizes adaptive 
       // Check if block is on ignore list
+      
       bool block_ignored = false;
+
       for (const auto& ignore_pair : ignore_list) {
         if (ignore_pair.first == (int)b) {
+
           block_ignored = true;
           break;
         }
       }
       
       if (block_ignored) {
-
+        
         continue;  // Skip this block completely
       }
       
       processed_blocks_this_iteration.push_back(b);
       std::cout<<"b = "<< b << "\n";
+
     for (int m = 0; m < move_methods.size(); m++)
-    {
-       
+    {   
+        //restart_iteration:
+        
+        unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
+
+        std::shuffle(move_methods.begin(), move_methods.end(),std::default_random_engine(seed)); 
+
+        std::cout<<"move :"<< move_methods[m];
+
         std::vector<double> dt_move;
         
-        
-        if (((move_methods[m] == "add departure") || (move_methods[m] == "sub departure")) && (b + 1 < init_schedule.blocks.size())){
+        if( (move_methods[m]=="swap" || move_methods[m]=="swap_inv") && ((b+1 < init_schedule.blocks.size()) && (b > 0)) )
+        {
+          schedule_struct schedule_sol = init_schedule;
+
+          //if the swap is invalid the move will do nothing
+            
+          move_wrapper(schedule_sol.blocks, b, 0.0, move_methods[m],simfile);
+          
+          double totalDeltaV_of_sol = 0.0;
+          
+          for (task_block tbsol : schedule_sol.blocks)
+          {
+            totalDeltaV_of_sol += std::abs(tbsol.deltaV_arrival);
+          }
+          
+
+          // Check if improvement found
+          if (totalDeltaV_of_sol < deltaVminima_so_far)
+          {
+
+
+            // Apply improvement immediately
+            init_schedule = schedule_sol;
+            deltaVminima_so_far = totalDeltaV_of_sol;
+            improvement_found_this_iteration = true;
+            total_improvements++;
+            
+            // Note: Block remains on ignore list with current lifetime
+            // Only removed when lifetime naturally reaches 0
+            
+            // Store convergence data
+            iteration_deltaV_history.push_back(deltaVminima_so_far);
+            
+            continue; 
+            //goto restart_iteration;  
+            // Apply the same move to this block with improved schedule
+             
+          }
+          
+          
+          else{
+            
+            //next move 
+
+            continue;
+          }
+
+
+          solnum_neighbourhood += 1; 
+
+
+        }
+
+        if (((move_methods[m] == "add departure") || (move_methods[m] == "sub departure")) && (b + 1 < init_schedule.blocks.size()))
+        {
 
           double largest_stepsize = init_schedule.blocks[b+1].arrival_time-init_schedule.blocks[b].departure_time;
 
@@ -1259,7 +1398,8 @@ schedule_struct local_search_opt_schedule_lambert_only_late_acceptance(double &i
           dt_move = generate_all_valid_moves(largest_stepsize);
         }
 
-        if (((move_methods[m] == "add arrival") || (move_methods[m] == "sub arrival")) && (b > 0)){
+        if (((move_methods[m] == "add arrival") || (move_methods[m] == "sub arrival")) && (b > 0))
+        {
 
           double largest_stepsize = init_schedule.blocks[b].arrival_time -init_schedule.blocks[b-1].departure_time; 
         
@@ -1273,7 +1413,12 @@ schedule_struct local_search_opt_schedule_lambert_only_late_acceptance(double &i
         {
           //for (int b = 0; b < init_schedule.blocks.size(); b++)
           //{
+            
+          if(move_methods[m]=="swap" || move_methods[m]=="swap_inv"){
+            //move sizes are invalid for this move type 
+            continue; 
 
+          }
 
           schedule_struct schedule_sol = init_schedule;
 
@@ -1283,6 +1428,7 @@ schedule_struct local_search_opt_schedule_lambert_only_late_acceptance(double &i
 
           if ((schedule_sol.blocks[b].departure_time == init_schedule.blocks[b].departure_time) && (schedule_sol.blocks[b].arrival_time == init_schedule.blocks[b].arrival_time))
           {
+            //move did nothing 
             continue;
           }
 
@@ -1300,11 +1446,11 @@ schedule_struct local_search_opt_schedule_lambert_only_late_acceptance(double &i
                                                (schedule_sol.blocks[b].arrival_time > schedule_sol.blocks[b - 1].departure_time) &&
                                                (schedule_sol.blocks[b - 1].departure_time > 0));
 
-          bool departure_constraint_satisfied = ((b + 1 < init_schedule.blocks.size()) && 
+          bool departure_constraint_satisfied = ((b + 2 < init_schedule.blocks.size()) && 
               (schedule_sol.blocks[b].departure_time > 0) &&
               (schedule_sol.blocks[b].departure_time >= schedule_sol.blocks[b].arrival_constraint + schedule_sol.blocks[b].service_duration) && 
               (schedule_sol.blocks[b].departure_time < schedule_sol.blocks[b + 1].arrival_time) &&
-              (schedule_sol.blocks[b + 1].arrival_time > schedule_sol.blocks[b].departure_time));
+              (schedule_sol.blocks[b].departure_time <= schedule_sol.blocks[b].arrival_constraint));
 
           // if the schedule created by the move is feasible
           if (arrival_constraint_satisfied || departure_constraint_satisfied)
@@ -1389,6 +1535,8 @@ schedule_struct local_search_opt_schedule_lambert_only_late_acceptance(double &i
             }
           }
 
+
+
           // Calculate total deltaV for the modified schedule
           double totalDeltaV_of_sol = 0.0;
           for (task_block tbsol : schedule_sol.blocks)
@@ -1408,12 +1556,17 @@ schedule_struct local_search_opt_schedule_lambert_only_late_acceptance(double &i
             
             // Note: Block remains on ignore list with current lifetime
             // Only removed when lifetime naturally reaches 0
-            
+            std::cout<<"improvement found"; 
             // Store convergence data
             iteration_deltaV_history.push_back(deltaVminima_so_far);
             
-            // Restart with improved schedule
-            goto restart_iteration;
+            // Restart with improved schedule (apply the same move to new block)
+            
+          }
+
+          else{
+
+            continue; 
           }
 
           solnum_neighbourhood += 1;
@@ -1421,12 +1574,12 @@ schedule_struct local_search_opt_schedule_lambert_only_late_acceptance(double &i
         } // closes iteration over the full schedule
       }// closes iteration over all move sizes
        //
-      std::cout<<"block "<< b <<"it complete ----------------------"<<"\n";
+      //std::cout<<"block "<< b <<"it complete ----------------------"<<"\n";
     } // closes iteration over all the moves
 
 
     // Add processed blocks to ignore list if no improvement was found
-    
+    /* 
     if (!improvement_found_this_iteration) {
       for (int block_idx : processed_blocks_this_iteration) {
         // Check if block is already on ignore list
@@ -1438,14 +1591,16 @@ schedule_struct local_search_opt_schedule_lambert_only_late_acceptance(double &i
           }
         }
         
-        if (!already_ignored) {
-          ignore_list.push_back({block_idx, 4});  // Add with lifetime = 4
+        //if (!already_ignored) {
+          //ignore_list.push_back({block_idx, 4});  // Add with lifetime = 4
          
-        }
+        //}
       }
     } else {
       std::cout << "Improvement found, not adding blocks to ignore list\n";
     }
+    */
+
 
     // Print ignore list status
     std::cout << "Ignore list size: " << ignore_list.size() << "\n";
