@@ -4,7 +4,7 @@
 #include <vector>
 #include <array>
 #include <string>
-#include <fstream> 
+#include <fstream>
 #include <armadillo>
 #include <chrono>
 #include "Nbody.hpp"
@@ -13,8 +13,8 @@
 Author : S. Nigudkar (2025)
 
 Functions that allow the initialization and propagation of a satellite constellation and a
-service station in circular orbit. Available constellation arrangements are currently limited 
-to - Delta Walker. 
+service station in circular orbit. Available constellation arrangements are currently limited
+to - Delta Walker.
 
 Units used - m,s,kg
 
@@ -22,13 +22,13 @@ Time Integrator used - Runge-Kutta 4
 
 */
 
-// sim functions // 
+// sim functions //
 
 double deg_to_rads(double deg){
 
     //converts measured angles from degrees to radians
 
-    return deg * M_PI / 180.0; 
+    return deg * M_PI / 180.0;
 
 }
 
@@ -36,17 +36,17 @@ double deg_to_rads(double deg){
 
 double get_inclination(arma::vec r, arma::vec v){
 
-    double r_norm = arma::norm(r); 
-    double v_norm = arma::norm(v); 
+    double r_norm = arma::norm(r);
+    double v_norm = arma::norm(v);
 
-    // angular momentum 
-    arma::vec h = arma::cross(r,v);  
-    double h_norm = arma::norm(h); 
+    // angular momentum
+    arma::vec h = arma::cross(r,v);
+    double h_norm = arma::norm(h);
 
-    // inclination 
-    double i = std::acos(h(2)/h_norm); 
-    
-    return i; 
+    // inclination
+    double i = std::acos(h(2)/h_norm);
+
+    return i;
 }
 
 
@@ -55,61 +55,61 @@ double get_inclination(arma::vec r, arma::vec v){
 
 orbital_elements orb_elems_from_rv(arma::vec r, arma::vec v){
 
-    
+
     // a, e, i, RAAN, true anomaly and augment_of_periapsis
     orbital_elements orb_elems;
 
-    double r_norm = arma::norm(r); 
-    double v_norm = arma::norm(v); 
+    double r_norm = arma::norm(r);
+    double v_norm = arma::norm(v);
 
-    // angular momentum 
-    arma::vec h = arma::cross(r,v);  
-    double h_norm = arma::norm(h); 
+    // angular momentum
+    arma::vec h = arma::cross(r,v);
+    double h_norm = arma::norm(h);
 
-    // inclination 
-    double i = std::acos(h(2)/h_norm); 
+    // inclination
+    double i = std::acos(h(2)/h_norm);
 
-    // RAAN 
+    // RAAN
     arma::vec k = {0,0,1};
 
     arma::vec n = arma::cross(k,h);
 
-    double n_norm = arma::norm(n); 
-    
-    
-    double RAAN; 
+    double n_norm = arma::norm(n);
+
+
+    double RAAN;
 
     if (n_norm < 1e-10) {
-    
+
       RAAN = 0.0;  // Convention
     }
 
     else if (n(1) >= 0 ){
 
-        RAAN =  std::acos(n(0)/n_norm); 
+        RAAN =  std::acos(n(0)/n_norm);
 
     }
-    
+
     else{
 
-        RAAN = 2 * M_PI - std::acos(n(0)/n_norm); 
+        RAAN = 2 * M_PI - std::acos(n(0)/n_norm);
 
     }
 
 
-    // eccentricity 
-    
+    // eccentricity
+
 
     arma::vec e = ((v_norm*v_norm - MU_EARTH/r_norm) * r - arma::dot(r,v)*v) / MU_EARTH;
 
 
-    double e_norm = arma::norm(e); 
-    
+    double e_norm = arma::norm(e);
+
 
     // augment_of_periapsis
 
-    double p_arg; 
-    
+    double p_arg;
+
 
     if (e_norm < 1e-10 || n_norm < 1e-10) {
       p_arg = 0.0;  // Convention
@@ -119,22 +119,22 @@ orbital_elements orb_elems_from_rv(arma::vec r, arma::vec v){
 
     else if (e(2) >= 0){
 
-        p_arg = std::acos(arma::dot(n,e)/ (n_norm*e_norm));     
+        p_arg = std::acos(arma::dot(n,e)/ (n_norm*e_norm));
 
     }
-    
+
 
     else{
 
-        p_arg = 2*M_PI - std::acos(arma::dot(n,e)/ (n_norm*e_norm)); 
+        p_arg = 2*M_PI - std::acos(arma::dot(n,e)/ (n_norm*e_norm));
 
     }
-    
-    
+
+
 
     // True anomaly
-    
-    double nu; 
+
+    double nu;
 
     if (e_norm < 1e-10) {
       nu = 0.0;  // Convention
@@ -142,29 +142,29 @@ orbital_elements orb_elems_from_rv(arma::vec r, arma::vec v){
 
     else if (arma::dot(r,v) >= 0){
 
-      nu = std::acos(arma::dot(e,r) / (e_norm*r_norm)); 
+      nu = std::acos(arma::dot(e,r) / (e_norm*r_norm));
 
     }
-    
+
     else{
 
-      nu = 2*M_PI - std::acos(arma::dot(e,r) / (e_norm*r_norm)); 
-    
+      nu = 2*M_PI - std::acos(arma::dot(e,r) / (e_norm*r_norm));
+
     }
 
 
 
 
-    // semi major axis 
+    // semi major axis
 
-    double energy =  (0.5 * v_norm*v_norm) - MU_EARTH/r_norm; 
-    double a; 
+    double energy =  (0.5 * v_norm*v_norm) - MU_EARTH/r_norm;
+    double a;
 
-    
-    // when the energy approaches 0 we have a parabolic orbit 
+
+    // when the energy approaches 0 we have a parabolic orbit
     if (std::abs(energy) < 1e-10){
-        
-        //for parabolic orbits energy = 0 so 'a' tends to infinity 
+
+        //for parabolic orbits energy = 0 so 'a' tends to infinity
 
         a = std::numeric_limits<double>::infinity();
 
@@ -173,28 +173,28 @@ orbital_elements orb_elems_from_rv(arma::vec r, arma::vec v){
     else{
 
         // for elliptical orbits e<0 and for hyperbolic orbits e>0
-        // so a can be finite 
-        
-        a = -MU_EARTH/ (2.0 * energy); 
-        
+        // so a can be finite
+
+        a = -MU_EARTH/ (2.0 * energy);
+
 
     }
 
-  
+
 
     // we have now calculated all orbital elements
     // now assign these to the orbital_elements object
-    
+
 
     orb_elems.inclination = i;
     orb_elems.RAAN = RAAN;
     orb_elems.augment_of_periapsis = p_arg;
     orb_elems.true_anomaly = nu;
     orb_elems.semi_major_axis = a;
-    orb_elems.eccentricity = e_norm;    
+    orb_elems.eccentricity = e_norm;
 
-        
-    return orb_elems; 
+
+    return orb_elems;
 
 }
 
@@ -206,10 +206,10 @@ orbital_elements orb_elems_from_rv(arma::vec r, arma::vec v){
 
 
 arma::vec3 acceleration_due_to_central_body (const arma::vec3& r){
-    
+
     double r_magnitude = arma::norm(r);
-    
-    if(r_magnitude == 0){ 
+
+    if(r_magnitude == 0){
 
         return arma::vec3();
     }
@@ -228,13 +228,13 @@ arma::vec3 acceleration_due_to_J2(const arma::vec3& r){
     double r5 = pow(r2, 2.5);
 
     double z2 = rz*rz;
-    
+
     double factor = 1.5 * J2 * MU_EARTH * R_EARTH*R_EARTH / r5;
-    
+
     double common = 5.0 * z2 / r2 - 1.0;
-    
+
     arma::vec3 a;
-    
+
     a(0) = rx * factor * common;
     a(1)= ry * factor * common;
     a(2) = rz * factor * (5.0 * z2 / r2 - 3.0);
@@ -244,7 +244,7 @@ arma::vec3 acceleration_due_to_J2(const arma::vec3& r){
 
 // compute accelerations given froce options
 arma::vec3 compute_acceleration(const satellite_object& sat, const std::vector<satellite_object>& all_sats, const force_model& force_options){
-    
+
     arma::vec3 acceleration_total = acceleration_due_to_central_body(sat.r);
 
     // adding a J2 perturbation
@@ -268,7 +268,7 @@ arma::vec3 compute_acceleration(const satellite_object& sat, const std::vector<s
             arma::vec3 dr_sat = other_satellite.r - sat.r;
 
             double d = arma::norm(dr_sat);
-            
+
             if(d == 0) continue;
 
                 acceleration_total += dr_sat * (G_CONST * other_satellite.mass / std::pow(d,3));
@@ -278,60 +278,60 @@ arma::vec3 compute_acceleration(const satellite_object& sat, const std::vector<s
 }
 
 
-// 4th order runge kutta integration to propogate satellite objects forwards in time. 
+// 4th order runge kutta integration to propogate satellite objects forwards in time.
 void runge_kutta_step(std::vector<satellite_object>& sats, double dt, const force_model& force_options){
-    
+
     int num_sats = sats.size();
 
     // initialize vectors to store RK additions for both position and velocity
     std::vector<arma::vec> k1r(num_sats), k1v(num_sats), k2r(num_sats), k2v(num_sats), k3r(num_sats), k3v(num_sats), k4r(num_sats), k4v(num_sats);
-    
-    // we will store the outputs of the rk4 passes in this vector  
+
+    // we will store the outputs of the rk4 passes in this vector
     std::vector<satellite_object> temp = sats;
 
-    // iterating through all satellites 
-    
+    // iterating through all satellites
+
     // RK4 Algo
-    
+
     // first pass = f(yn)
     // k1 = f(yn + h * (fist pass) / 2 )
     // k2 = f(yn + h * (k1) / 2 )
     // k3 = f(yn + h * k2 )
     // k4 = y_(n+1) = y_n + h/6 (first pass + 2k1 + 2k2 + k3)
 
-    // first pass is already stored in sats 
+    // first pass is already stored in sats
 
-    // now we use the values in sats to calculate the rk1 
-    for(int i=0;i<num_sats;i++) k1r[i] = sats[i].v;    
+    // now we use the values in sats to calculate the rk1
+    for(int i=0;i<num_sats;i++) k1r[i] = sats[i].v;
     for(int i=0;i<num_sats;i++) k1v[i] = compute_acceleration(sats[i], sats, force_options);
     for(int i=0;i<num_sats;i++){
-        
+
         temp[i].r = sats[i].r + k1r[i]*(0.5*dt);
         temp[i].v = sats[i].v + k1v[i]*(0.5*dt);
     }
 
-    // rk2 
+    // rk2
 
     for(int i=0;i<num_sats;i++) k2r[i] = temp[i].v;
     for(int i=0;i<num_sats;i++) k2v[i] = compute_acceleration(temp[i], temp, force_options);
     for(int i=0;i<num_sats;i++){
-        
+
         temp[i].r = sats[i].r + k2r[i]*(0.5*dt);
         temp[i].v = sats[i].v + k2v[i]*(0.5*dt);
     }
 
 
-    // rk3 
+    // rk3
 
     for(int i=0;i<num_sats;i++) k3r[i] = temp[i].v;
     for(int i=0;i<num_sats;i++) k3v[i] = compute_acceleration(temp[i], temp, force_options);
     for(int i=0;i<num_sats;i++){
-        
+
         temp[i].r = sats[i].r + k3r[i]*dt;
         temp[i].v = sats[i].v + k3v[i]*dt;
     }
 
-    
+
     // using above passes to compute y_n+1
 
     for(int i=0;i<num_sats;i++) k4r[i] = temp[i].v;
@@ -351,21 +351,21 @@ void runge_kutta_step(std::vector<satellite_object>& sats, double dt, const forc
 std::vector<satellite_object> build_walker_constellation(int num_planes, int total_satnum, int phase ,
                                              double altitude_m,
                                              double inclination_rad,
-                                             double sat_mass) {                       
-                                                
+                                             double sat_mass) {
+
     std::vector<satellite_object> sats;
 
     // predecided size of array
     sats.reserve(total_satnum);
-    
+
 
     double a = altitude_m;
     // num satellites per plane
     int S = total_satnum / num_planes ;
-    // the right accession (a total of 360 deg or 2pi rads) is divided up into n orbital planes. 
+    // the right accession (a total of 360 deg or 2pi rads) is divided up into n orbital planes.
     double RAAN_step = 2.0 * M_PI / num_planes;
-    
-    // for each plane, 
+
+    // for each plane,
     for (int p = 0; p < num_planes; ++p) {
 
         double RAAN = p * RAAN_step;
@@ -375,7 +375,7 @@ std::vector<satellite_object> build_walker_constellation(int num_planes, int tot
 
             // apply phasing
             double phase = 2.0 * M_PI * ( (s + (double)phase * p / num_planes) / S );
-            
+
             orbital_elements el;
             el.semi_major_axis = a;
             el.eccentricity = 0.0;
@@ -394,7 +394,7 @@ std::vector<satellite_object> build_walker_constellation(int num_planes, int tot
 
 
 
-std::vector<satellite_object> circular_orbits(int total_satnum, 
+std::vector<satellite_object> circular_orbits(int total_satnum,
                                              double altitude_m,
                                              double inclination_rad,
                                              double RAAN , double satmass){
@@ -403,31 +403,31 @@ std::vector<satellite_object> circular_orbits(int total_satnum,
     std::vector<satellite_object> sats;
     // predecided size of array
     sats.reserve(total_satnum);
-                     
+
     double a = altitude_m;
 
     orbital_elements el;
 
-    
+
     el.semi_major_axis = a;
     el.eccentricity = 0.0;
     el.inclination = inclination_rad;
     el.RAAN = RAAN;
-    
-    double phase = 2 * M_PI / total_satnum ; 
+
+    double phase = 2 * M_PI / total_satnum ;
 
     el.augment_of_periapsis= 0.0;
-    
+
     for (int p = 0; p < total_satnum; p++){
 
         el.true_anomaly = phase * p;
 
-        std::string name = "sat_"+std::to_string(p) ; 
-    
+        std::string name = "sat_"+std::to_string(p) ;
+
         sats.push_back(satellite_object::from_satellite_normal_to_ECI_coords(name, el, satmass));
-    
+
     }
-                                                
+
 
     return sats;
 
@@ -454,10 +454,82 @@ void showProgressBar(int progress, int total, int barWidth ) {
 
 
 
+void run_simulation(std::string save_to_file, double t_final, force_model fmodel){
+
+    std::vector<satellite_object> sats;
+
+    sats = build_walker_constellation(num_planes, num_clients, phase,
+                                      a_client,inclination,1.0);
+
+    double period = 2*M_PI * sqrt(pow(a_client,3) / MU_EARTH);
+
+    //init service satellite in circular orbit
+
+    orbital_elements svc;
+    svc.semi_major_axis = a_depot;
+    svc.eccentricity = 0.001;
+    svc.inclination = inclination;
+    svc.RAAN = 0.0;
+    svc.augment_of_periapsis = 10.0 * M_PI/180.0;
+    svc.true_anomaly = 0.0;
+
+    sats.push_back(satellite_object::from_satellite_normal_to_ECI_coords("service_1", svc, 1.0));
+
+    //std::cout << "# time(s) index name x y z vx vy vz\n";
+
+    //write header
+    std::ofstream csv("../data/"+save_to_file);
+    csv << "time_s,index,name,x,y,z,vx,vy,vz,semi_major_axis,eccentricity,inclination,RAAN,arg_periapsis,true_anomaly\n";
 
 
-void run_simulation(    std::string save_to_file, std::string arrangement, double t_final,double dt, 
-                        double altitude_m,double num_planes, double num_satellites, 
+    double t = 0.0;
+    int step = 0;
+
+
+    std::cout<<"Running Simulation";
+    while(t < (t_final - 1e-9)){
+        // only write outputs to csv files every 10 timesteps
+        // I am just thinning the datafile here so we can store it easily
+
+        //if(step % 10 == 0){
+
+            for(size_t i=0;i<sats.size();i++){
+
+                // Calculate orbital elements for current state
+                orbital_elements elems = orb_elems_from_rv(sats[i].r, sats[i].v);
+
+                csv << t << "," << i << "," << sats[i].satname << ","
+                    << sats[i].r(0) << "," << sats[i].r(1) << "," << sats[i].r(2) << ","
+                    << sats[i].v(0) << "," << sats[i].v(1) << "," << sats[i].v(2) << ","
+                    << elems.semi_major_axis << "," << elems.eccentricity << ","
+                    << elems.inclination << "," << elems.RAAN << ","
+                    << elems.augment_of_periapsis << "," << elems.true_anomaly << "\n";
+
+            }
+
+            //}
+
+        runge_kutta_step(sats, tstep_size, fmodel);
+
+        t += tstep_size;
+        step++;
+        //showProgressBar(t, t_final);
+
+
+    }
+
+    std::cout << std::endl << "Done!" << std::endl;
+
+    csv.close();
+    std::cout << "CSV saved to ../data/"+save_to_file+"\n";
+
+
+}
+
+
+
+void run_simulation(    std::string save_to_file, std::string arrangement, double t_final,double dt,
+                        double altitude_m, double num_planes, double num_satellites,
                         double relative_phase, double inclination_in_radians,force_model fmodel,
                         double satmass,double idiff){
 
@@ -466,9 +538,9 @@ void run_simulation(    std::string save_to_file, std::string arrangement, doubl
 
     double period = 2*M_PI * sqrt(pow(altitude,3) / MU_EARTH);
 
-    std::cout << "orbital period: " <<  period;  
+    std::cout << "orbital period: " <<  period;
 
-    std::vector<satellite_object> sats; 
+    std::vector<satellite_object> sats;
 
     if (arrangement == "walker_delta"){
 
@@ -476,39 +548,39 @@ void run_simulation(    std::string save_to_file, std::string arrangement, doubl
                                                                         altitude,
                                                                         56.0 * M_PI/180.0,
                                                                         satmass);
-        
-    } 
+
+    }
 
     if (arrangement == "circular_orbits"){
 
 
-        sats = circular_orbits(num_satellites, 
+        sats = circular_orbits(num_satellites,
                                 altitude,inclination_in_radians,
                                 0.0, satmass);
 
-                                            
-   
+
+
     }
 
     if (arrangement == "flower_constellation"){
 
 
-        
-        
-        //std::vector<satellite_object> sats = build_coplanar_circular_orbit(); 
+
+
+        //std::vector<satellite_object> sats = build_coplanar_circular_orbit();
 
     }
 
     if (arrangement == "spiral_constellation"){
-                 
-        //std::vector<satellite_object> sats = build_coplanar_circular_orbit(); 
 
-        
+        //std::vector<satellite_object> sats = build_coplanar_circular_orbit();
+
+
     }
 
     if (arrangement == "custom"){
-        
-        //std::vector<satellite_object> sats = build_coplanar_circular_orbit(); 
+
+        //std::vector<satellite_object> sats = build_coplanar_circular_orbit();
 
     }
 
@@ -528,49 +600,49 @@ void run_simulation(    std::string save_to_file, std::string arrangement, doubl
 
     //write header
     std::ofstream csv("../data/"+save_to_file);
-    csv << "time_s,index,name,x,y,z,vx,vy,vz\n";
+    csv << "time_s,index,name,x,y,z,vx,vy,vz,semi_major_axis,eccentricity,inclination,RAAN,arg_periapsis,true_anomaly\n";
 
 
     double t = 0.0;
     int step = 0;
 
 
-    std::cout<<"Running Simulation"; 
+    std::cout<<"Running Simulation";
     while(t < (t_final - 1e-9)){
         // only write outputs to csv files every 10 timesteps
-        // I am just thinning the datafile here so we can store it easily 
+        // I am just thinning the datafile here so we can store it easily
 
         if(step % 10 == 0){
 
             for(size_t i=0;i<sats.size();i++){
-                
+
                 // Calculate orbital elements for current state
                 orbital_elements elems = orb_elems_from_rv(sats[i].r, sats[i].v);
-            
+
                 csv << t << "," << i << "," << sats[i].satname << ","
                     << sats[i].r(0) << "," << sats[i].r(1) << "," << sats[i].r(2) << ","
                     << sats[i].v(0) << "," << sats[i].v(1) << "," << sats[i].v(2) << ","
                     << elems.semi_major_axis << "," << elems.eccentricity << ","
                     << elems.inclination << "," << elems.RAAN << ","
                     << elems.augment_of_periapsis << "," << elems.true_anomaly << "\n";
-            
+
             }
 
         }
 
         runge_kutta_step(sats, dt, fmodel);
-        
+
         t += dt;
         step++;
         //showProgressBar(t, t_final);
-        
+
 
     }
-    
+
     std::cout << std::endl << "Done!" << std::endl;
 
     csv.close();
-    std::cout << "CSV saved to data/WalkerDelta.csv\n";
+    std::cout << "CSV saved to ../data/WalkerDelta.csv\n";
 
 
 
@@ -585,14 +657,14 @@ bool is_in_vec(const std::vector<double>& v, double x) {
 
 
 
-struct constellation_struct{   
-                        int num_planes; 
-                        int num_satellites; 
+struct constellation_struct{
+                        int num_planes;
+                        int num_satellites;
                         int relative_phase;
                         double altitude;
                         double inclination;
                         double satmass;
-    
+
 };
 
 
@@ -600,22 +672,22 @@ struct constellation_struct{
 class Simulation{
 
 
-    public: 
-        
-        force_model force_options;         
+    public:
+
+        force_model force_options;
         int numsats;
         std::vector<satellite_object> sats;
         std::vector<double> taken_inclinations;
-        std::vector<double> taken_a; 
+        std::vector<double> taken_a;
         // constructor
         Simulation() : force_options(true, false) {
-            numsats = 0; 
-            
+            numsats = 0;
+
         };
 
 
         Simulation(force_model force_opts) : force_options(force_opts) {
-            numsats=0; 
+            numsats=0;
 
         };
 
@@ -629,60 +701,60 @@ class Simulation{
 
         }
 
-        
+
         void add_sats(orbital_elements el,int totalsats,double phase_lim,double satmass){
-            
+
 
             if(is_in_vec(taken_a,el.semi_major_axis) && is_in_vec(taken_inclinations, el.inclination)){
-            
-                std::cout<<"The desired orbit is already populated, please choose different (a,i)"<<std::endl; 
-                
+
+                std::cout<<"The desired orbit is already populated, please choose different (a,i)"<<std::endl;
+
             }
 
             else{
 
-            
+
                 for (int i= 0 ; i < totalsats ; i++){
 
                     numsats++;
 
-                    orbital_elements el_in = el; 
-    
-                    double phase = 2 * M_PI/phase_lim *  i / totalsats ; 
+                    orbital_elements el_in = el;
 
-                    el_in.true_anomaly = phase; 
+                    double phase = 2 * M_PI/phase_lim *  i / totalsats ;
+
+                    el_in.true_anomaly = phase;
 
                     sats.push_back(satellite_object::from_satellite_normal_to_ECI_coords("sat_"+std::to_string(numsats), el_in, satmass));
-                                                                                
+
                 }
-            
+
 
                 taken_inclinations.push_back(el.inclination);
                 taken_a.push_back(el.semi_major_axis);
 
             }
 
-        }; 
-        
+        };
 
-    
+
+
         void add_constellation(std::string constellation_type,constellation_struct constellation){
 
-                
+
             if (numsats > 0){
 
                 std::cout << "unable to populate constellation because orbits already exist"<<std::endl;
                 std::cout << "please start with an empty simulation environment and initialize constellation before other orbits"<<std::endl;
 
-            } 
-            
+            }
+
             else{
-            
+
 
             if (constellation_type == "walker_delta"){
 
-                std::vector<satellite_object> constellation_array = build_walker_constellation( constellation.num_planes, 
-                                                                                                constellation.num_satellites, 
+                std::vector<satellite_object> constellation_array = build_walker_constellation( constellation.num_planes,
+                                                                                                constellation.num_satellites,
                                                                                                 constellation.relative_phase,
                                                                                                 constellation.altitude,
                                                                                                 constellation.inclination,
@@ -690,88 +762,85 @@ class Simulation{
 
 
 
-                sats = constellation_array; 
+                sats = constellation_array;
 
-                taken_inclinations.push_back(constellation.inclination); 
-                taken_a.push_back(constellation.altitude); 
+                taken_inclinations.push_back(constellation.inclination);
+                taken_a.push_back(constellation.altitude);
 
-                numsats+=constellation.num_satellites; 
-                
+                numsats+=constellation.num_satellites;
 
-            } 
-            
-            }
-
-        
-        }; 
-
-        
-        // destructor 
-        ~Simulation(); 
-
-        // now we define functions to actually run the simulation 
-        
-        void run_simulation(double t_end,double dt, std::string file_to_write){
-
-            std::ofstream csv("../data/"+file_to_write);
-csv << "time_s,index,name,x,y,z,vx,vy,vz,semi_major_axis,eccentricity,inclination,RAAN,arg_periapsis,true_anomaly\n";
-
-            double t = 0.0; 
-            std::cout<<"Running Simulation"; 
-            int step=0;
-
-            while(t < (t_end - 1e-9)){
-                // only write outputs to csv files every 10 timesteps
-                // I am just thinning the datafile here so we can store it easily 
-
-                if(step % 10 == 0){
-
-                    for(size_t i=0;i<sats.size();i++){
-
-            
-                        csv << t << "," << i << "," << sats[i].satname << ","
-                            << sats[i].r(0) << "," << sats[i].r(1) << "," << sats[i].r(2) << ","
-                            << sats[i].v(0) << "," << sats[i].v(1) << "," << sats[i].v(2) << "\n";
-            
-                    }
-
-                }
-
-                runge_kutta_step(sats, dt, force_options);
-        
-                t += dt;
-                step++;
-                //showProgressBar(t, t_final);
-        
 
             }
-    
-            std::cout << std::endl << "Done!" << std::endl;
 
-            csv.close();
-            std::cout << "CSV saved to data/WalkerDelta.csv\n";
+            }
 
 
         };
 
 
-    private: 
+        // destructor
+        ~Simulation();
+
+        // now we define functions to actually run the simulation
+
+        void run_simulation(double t_end,double dt, std::string file_to_write){
+
+            std::ofstream csv("../data/"+file_to_write);
+csv << "time_s,index,name,x,y,z,vx,vy,vz,semi_major_axis,eccentricity,inclination,RAAN,arg_periapsis,true_anomaly\n";
+
+            double t = 0.0;
+            std::cout<<"Running Simulation";
+            int step=0;
+
+            while(t < (t_end - 1e-9)){
+                // only write outputs to csv files every 10 timesteps
+                // I am just thinning the datafile here so we can store it easily
+
+                if(step % 10 == 0){
+
+                    for(size_t i=0;i<sats.size();i++){
+
+                        // Calculate orbital elements for current state
+                        orbital_elements elems = orb_elems_from_rv(sats[i].r, sats[i].v);
+
+                        csv << t << "," << i << "," << sats[i].satname << ","
+                            << sats[i].r(0) << "," << sats[i].r(1) << "," << sats[i].r(2) << ","
+                            << sats[i].v(0) << "," << sats[i].v(1) << "," << sats[i].v(2) << ","
+                            << elems.semi_major_axis << "," << elems.eccentricity << ","
+                            << elems.inclination << "," << elems.RAAN << ","
+                            << elems.augment_of_periapsis << "," << elems.true_anomaly << "\n";
+
+                    }
+
+                }
+
+                runge_kutta_step(sats, dt, force_options);
+
+                t += dt;
+                step++;
+                //showProgressBar(t, t_final);
+
+
+            }
+
+            std::cout << std::endl << "Done!" << std::endl;
+
+            csv.close();
+            std::cout << "CSV saved to ../data/WalkerDelta.csv\n";
+
+
+        };
+
+
+    private:
 
         bool check_for_collisions(orbital_elements el){
-            
 
-            return false;  
+            return false;
 
         }
-        
+
 
 
 
 };
-
-
-
-
-
-
-

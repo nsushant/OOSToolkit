@@ -29,7 +29,7 @@ search.
 void move_sub_traj(std::vector<task_block> &blocks, int b_index, double dt)
 {
 
-  if (b_index > 0)
+  if (has_previous_block(b_index))
   {
 
     if (blocks[b_index - 1].departure_time - dt > (blocks[b_index - 1].arrival_constraint + blocks[b_index - 1].service_duration))
@@ -59,7 +59,7 @@ void move_sub_traj(std::vector<task_block> &blocks, int b_index, double dt)
 void move_add_traj(std::vector<task_block> &blocks, int b_index, double dt)
 {
 
-  if (b_index > 0)
+  if (has_previous_block(b_index))
   {
 
     if ((blocks[b_index - 1].departure_time + dt) < (blocks[b_index].arrival_time - dt))
@@ -96,7 +96,7 @@ void move_dt(task_block &tb, double dt)
 void move_dt2(std::vector<task_block> &blocks, int b_index, double dt)
 {
 
-  if (b_index > 0)
+  if (has_previous_block(b_index))
   {
 
     if (blocks[b_index].arrival_time - dt > blocks[b_index - 1].departure_time)
@@ -123,7 +123,7 @@ void move_dt2(std::vector<task_block> &blocks, int b_index, double dt)
 void move_dt2_inv(std::vector<task_block> &blocks, int b_index, double dt)
 {
 
-  if (b_index > 0)
+  if (has_previous_block(b_index))
   {
 
     if (blocks[b_index].arrival_time + dt <= blocks[b_index].arrival_constraint)
@@ -158,7 +158,7 @@ void move_add_arrival(std::vector<task_block> &blocks, int b_index, double dt)
 {
 
   // except for the first block
-  if (b_index > 0)
+  if (has_previous_block(b_index))
   {
 
     // ensure that the addition in arrival time does not make arrival occur after the departure time
@@ -196,7 +196,7 @@ void move_sub_departure(std::vector<task_block> &blocks, int b_index,
 {
 
   // for all but the last block
-  if (b_index + 1 < blocks.size())
+  if (has_next_block(b_index, blocks.size()))
   {
 
     if (blocks[b_index].departure_time - dt >= (blocks[b_index].arrival_constraint + blocks[b_index].service_duration)) 
@@ -213,7 +213,7 @@ void move_sub_arrival(std::vector<task_block> &blocks, int b_index, double dt)
 {
 
   // for all but the first block
-  if (b_index > 0)
+  if (has_previous_block(b_index))
   {
 
     if (blocks[b_index].arrival_time - dt > blocks[b_index - 1].departure_time)
@@ -283,7 +283,7 @@ void swap_slots(std::vector<task_block> &blocks, int b_index, double dt,
     
 
 
-  else if (b_index > 0)
+  else if (has_previous_block(b_index))
   {
 
       blocks[b_index + numslots].satname = blocks[b_index].satname;
@@ -780,7 +780,7 @@ schedule_struct local_search_opt_schedule_lambert_only(double &init_deltaV, sche
             continue;
           }
 
-          double DeltaVMinimaopt = 10000000;
+          double DeltaVMinimaopt = NUMERICAL_INFINITY;
 
           bool arrival_constraint_satisfied = ((b > 0) &&
                                                (schedule_sol.blocks[b].arrival_time <= schedule_sol.blocks[b].arrival_constraint) &&
@@ -832,14 +832,7 @@ schedule_struct local_search_opt_schedule_lambert_only(double &init_deltaV, sche
 
           // closes for loop over the whole schedule
 
-          double totalDeltaV_of_sol = 0.0;
-
-          for (int elem = 0; elem < schedule_sol.blocks.size(); elem++)
-          {
-
-            totalDeltaV_of_sol +=
-                std::abs(schedule_sol.blocks[elem].deltaV_arrival);
-          }
+          double totalDeltaV_of_sol = calculate_total_deltaV(schedule_sol);
 
           deltaVs_of_neighbourhood.push_back(totalDeltaV_of_sol);
 
@@ -950,13 +943,7 @@ schedule_struct local_search_opt_schedule(double init_deltaV,
         list_of_schedules.push_back(schedule_sol);
       }
 
-      double totalDeltaV_of_sol = 0.0;
-
-      for (int elem = 0; elem < schedule_sol.blocks.size(); elem++)
-      {
-
-        totalDeltaV_of_sol += std::abs(schedule_sol.blocks[elem].deltaV_arrival);
-      }
+      double totalDeltaV_of_sol = calculate_total_deltaV(schedule_sol);
 
       deltaVs_of_neighbourhood(b) = (totalDeltaV_of_sol);
 
@@ -1430,9 +1417,9 @@ schedule_struct local_search_opt_schedule_lambert_only_late_acceptance(double &i
           {
             //move did nothing 
             continue;
-          }
+           }
 
-          double DeltaVMinimaopt = 10000000;
+          double DeltaVMinimaopt = NUMERICAL_INFINITY;
 
           // Early constraint checking - reject invalid moves before expensive calculations
           if (!quick_feasibility_check(schedule_sol, b, move_methods[m], dt_move[d])) {

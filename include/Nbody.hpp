@@ -1,11 +1,11 @@
-#pragma once 
+#pragma once
 #include <iostream>
 #include <iomanip>
 #include <cmath>
 #include <vector>
 #include <array>
 #include <string>
-#include <fstream> 
+#include <fstream>
 #include <armadillo>
 #include <chrono>
 
@@ -14,8 +14,8 @@
 Author : S. Nigudkar (2025)
 
 Functions that allow the initialization and propagation of a satellite constellation and a
-service station in circular orbit. Available constellation arrangements are currently limited 
-to - Delta Walker. 
+service station in circular orbit. Available constellation arrangements are currently limited
+to - Delta Walker.
 
 Units used - m,s,kg
 
@@ -25,24 +25,35 @@ Time Integrator used - Runge-Kutta 4
 
 
 
-// simulation constants // 
+// simulation constants //
 const double MU_EARTH = 3.986004418e14; // m^3/s^2
 const double R_EARTH  = 6378137.0;      // m
 const double J2       = 1.08262668e-3;
 const double G_CONST  = 6.67430e-11;    // gravitational constant m^3/kg/s^2
+const double tstep_size = 6000.0;    //seconds
+const double a_depot = R_EARTH + 800.0;
+const double a_client = R_EARTH + 700.0;
+const double inclination = 56.0 * M_PI/180.0;
+const double phase = 1.0;
+const double num_clients = 600.0;
+const double num_planes = 20.0;
+
+// Mathematical constants
+constexpr double EPSILON = 1e-10;
+constexpr double PI = 3.14159265358979323846;
 
 
 
 // simulation structs //
 
 struct orbital_elements
-{   
+{
     double inclination;
     double RAAN;
     double augment_of_periapsis;
     double true_anomaly;
     double semi_major_axis;
-    double eccentricity;  
+    double eccentricity;
 };
 
 struct satellite_object
@@ -58,10 +69,10 @@ struct satellite_object
     // function to convert satellite coordinates from the perifocal coordinate system to the ECI frame
     // static makes the function available, independent from the instance of a satellite_object
     static satellite_object from_satellite_normal_to_ECI_coords(const std::string& satname, const orbital_elements& orb_elems, double mass=1.0){
-        
-        
-        //mass and name remain the same 
-        satellite_object sat_ECI(satname,mass); 
+
+
+        //mass and name remain the same
+        satellite_object sat_ECI(satname,mass);
         double a = orb_elems.semi_major_axis;
         double e = orb_elems.eccentricity;
         double i = orb_elems.inclination;
@@ -69,17 +80,17 @@ struct satellite_object
         double w = orb_elems.augment_of_periapsis;
         double nu = orb_elems.true_anomaly;
         // in the perifocal coordinate frame
-        
+
         double p = a * (1 - e*e); // r_c radius at which forces are balanced
 
         double mag_r = p / (1 + e * cos(nu)); // trajectory equation
         double h = sqrt(MU_EARTH * p);
 
-        // statement of r and v in perifocal coordinate system 
+        // statement of r and v in perifocal coordinate system
         arma::vec r_perifocal = { mag_r * cos(nu), mag_r * sin(nu), 0.0 };
         arma::vec v_perifocal = { -MU_EARTH / h * sin(nu), MU_EARTH / h * (e + cos(nu)), 0.0 };
 
-        // rotation matricies 
+        // rotation matricies
         arma::mat Rz_RAAN = { {cos(RAAN), -sin(RAAN), 0},
                               {sin(RAAN),  cos(RAAN), 0},
                               {0,          0,         1} };
@@ -95,12 +106,12 @@ struct satellite_object
         // Rotation from perifocal to ECI
         arma::mat R_peri_to_ECI = Rz_RAAN * Rx * Rz_w;
 
-        // Apply rotation 
+        // Apply rotation
         sat_ECI.r = R_peri_to_ECI * r_perifocal;
         sat_ECI.v = R_peri_to_ECI * v_perifocal;
 
         return sat_ECI;
-        
+
     }
 
 };
@@ -108,18 +119,18 @@ struct satellite_object
 struct force_model {
     const bool includeJ2;
     const bool includeMutual;
-    
+
     // Default constructor
     force_model() : includeJ2(true), includeMutual(false) {}
-    
+
     // Parameterized constructor
     force_model(bool j2, bool mutual) : includeJ2(j2), includeMutual(mutual) {}
 };
 
 
-// sim functions // 
+// sim functions //
 
-double deg_to_rads(double deg); 
+double deg_to_rads(double deg);
 
 double get_inclination(arma::vec r, arma::vec v);
 
@@ -135,29 +146,30 @@ arma::vec3 acceleration_due_to_J2(const arma::vec3& r);
 
 
 // compute accelerations given froce options
-arma::vec3 compute_acceleration(const satellite_object& sat, 
-                                const std::vector<satellite_object>& all_sats, 
+arma::vec3 compute_acceleration(const satellite_object& sat,
+                                const std::vector<satellite_object>& all_sats,
                                 const force_model& force_options    );
 
-// 4th order runge kutta integration to propogate satellite objects forwards in time. 
+// 4th order runge kutta integration to propogate satellite objects forwards in time.
 void runge_kutta_step(std::vector<satellite_object>& sats, double dt, const force_model& force_options);
 
 // distributing satellites in a walker constellation
-std::vector<satellite_object> build_walker_constellation(   int num_planes, 
-                                                            int total_satnum, 
+std::vector<satellite_object> build_walker_constellation(   int num_planes,
+                                                            int total_satnum,
                                                             int phase,
                                                             double altitude_m,
                                                             double inclination_rad,
-                                                            double sat_mass=100.0   );                        
-                                                
+                                                            double sat_mass=100.0   );
+
 
 
 
 
 void showProgressBar(int progress, int total, int barWidth = 50);
 
-void run_simulation(    std::string save_to_file, std::string arrangement, double t_final,double dt, 
-                        double altitude_m,double num_planes, double num_satellites, 
+void run_simulation(std::string save_to_file, double t_final, force_model fmodel);
+
+void run_simulation(    std::string save_to_file, std::string arrangement, double t_final,double dt,
+                        double altitude_m,double num_planes, double num_satellites,
                         double relative_phase, double inclination_in_radians,
                         force_model fmodel ,double satmass=1.0,double idiff=0.0);
-

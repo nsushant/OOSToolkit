@@ -13,6 +13,7 @@
 #include "Trajectory_selection.hpp"
 #include "LowThrustAnalytical.hpp"
 
+
 /*
 Author : S. Nigudkar (2025)
 
@@ -32,43 +33,35 @@ void find_optimal_trajectory(std::string service_satname, std::string client_sat
 
     // methods used on dataframes and the definition of the data structure
     // are both located in the data_access_lib.hpp file
-    std::vector<std::string> satnames = simfile["name"];
-
-    // .getNumeric casts the strings stored in the csv file to floats
-    arma::vec x_sat = simfile.getNumeric("x");
-    arma::vec y_sat = simfile.getNumeric("y");
-    arma::vec z_sat = simfile.getNumeric("z");
-    arma::vec vx_sat = simfile.getNumeric("vx");
-    arma::vec vy_sat = simfile.getNumeric("vy");
-    arma::vec vz_sat = simfile.getNumeric("vz");
-    arma::vec t_sat = simfile.getNumeric("time_s");
+    SatelliteData sat_data(simfile);
+    std::vector<std::string> satnames = sat_data.names;
 
     // find_idxs_of_match finds the indicies at which satnames == service_satname
     arma::uvec service_sat_idxs = find_idxs_of_match(satnames, service_satname);
     arma::uvec client_sat_idxs = find_idxs_of_match(satnames, client_satname);
 
     // locations of service station
-    arma::vec t_service_sat = t_sat.elem(service_sat_idxs);
+    arma::vec t_service_sat = sat_data.t.elem(service_sat_idxs);
 
-    arma::vec x_service_sat = x_sat.elem(service_sat_idxs);
-    arma::vec y_service_sat = y_sat.elem(service_sat_idxs);
-    arma::vec z_service_sat = z_sat.elem(service_sat_idxs);
+    arma::vec x_service_sat = sat_data.x.elem(service_sat_idxs);
+    arma::vec y_service_sat = sat_data.y.elem(service_sat_idxs);
+    arma::vec z_service_sat = sat_data.z.elem(service_sat_idxs);
 
     // service station velocities
-    arma::vec vx_service_sat = vx_sat.elem(service_sat_idxs);
-    arma::vec vy_service_sat = vy_sat.elem(service_sat_idxs);
-    arma::vec vz_service_sat = vz_sat.elem(service_sat_idxs);
+    arma::vec vx_service_sat = sat_data.vx.elem(service_sat_idxs);
+    arma::vec vy_service_sat = sat_data.vy.elem(service_sat_idxs);
+    arma::vec vz_service_sat = sat_data.vz.elem(service_sat_idxs);
 
     // service demand
-    arma::vec t_client = t_sat.elem(client_sat_idxs);
-    arma::vec x_client = x_sat.elem(client_sat_idxs);
-    arma::vec y_client = y_sat.elem(client_sat_idxs);
-    arma::vec z_client = z_sat.elem(client_sat_idxs);
+    arma::vec t_client = sat_data.t.elem(client_sat_idxs);
+    arma::vec x_client = sat_data.x.elem(client_sat_idxs);
+    arma::vec y_client = sat_data.y.elem(client_sat_idxs);
+    arma::vec z_client = sat_data.z.elem(client_sat_idxs);
 
     // client velocities
-    arma::vec vx_client = vx_sat.elem(client_sat_idxs);
-    arma::vec vy_client = vy_sat.elem(client_sat_idxs);
-    arma::vec vz_client = vz_sat.elem(client_sat_idxs);
+    arma::vec vx_client = sat_data.vx.elem(client_sat_idxs);
+    arma::vec vy_client = sat_data.vy.elem(client_sat_idxs);
+    arma::vec vz_client = sat_data.vz.elem(client_sat_idxs);
 
     // available x,t for the service shuttle
     arma::uvec t_service_idxs = arma::find((t_service_sat >= t_prev) % (t_service_sat <= t_request));
@@ -266,10 +259,301 @@ void find_optimal_trajectory(std::string service_satname, std::string client_sat
     t_prev = idealdep;
     t_request = idealarr;
 
-    std::cout << "ideal dep: " << idealdep << "," << "ideal arrival: " << idealarr << "\n";
+    //std::cout << "ideal dep: " << idealdep << "," << "ideal arrival: " << idealarr << "\n";
 
     // std::cout << "DeltaVMinima : " << DeltaVMinima << std::endl;
 }
+
+
+
+void find_optimal_trajectory(std::string service_satname, std::string client_satname, double &t_prev,
+    double &t_request, arma::vec &v1sol, arma::vec &v2sol, arma::vec &r1sol, arma::vec &r2sol,
+    double &tof_optimal, std::vector<arma::vec> &trajs, DataFrame simfile, std::string method,
+    bool write_to_file, double &DeltaVMinima, std::unordered_map<lookupkey, double, HashKey>& lookup)
+{
+
+    // methods used on dataframes and the definition of the data structure
+    // are both located in the data_access_lib.hpp file
+    SatelliteData sat_data(simfile);
+    std::vector<std::string> satnames = sat_data.names;
+
+    // find_idxs_of_match finds the indicies at which satnames == service_satname
+    arma::uvec service_sat_idxs = find_idxs_of_match(satnames, service_satname);
+    arma::uvec client_sat_idxs = find_idxs_of_match(satnames, client_satname);
+
+    // locations of service station
+    arma::vec t_service_sat = sat_data.t.elem(service_sat_idxs);
+
+    arma::vec x_service_sat = sat_data.x.elem(service_sat_idxs);
+    arma::vec y_service_sat = sat_data.y.elem(service_sat_idxs);
+    arma::vec z_service_sat = sat_data.z.elem(service_sat_idxs);
+
+    // service station velocities
+    arma::vec vx_service_sat = sat_data.vx.elem(service_sat_idxs);
+    arma::vec vy_service_sat = sat_data.vy.elem(service_sat_idxs);
+    arma::vec vz_service_sat = sat_data.vz.elem(service_sat_idxs);
+
+    // service demand
+    arma::vec t_client = sat_data.t.elem(client_sat_idxs);
+    arma::vec x_client = sat_data.x.elem(client_sat_idxs);
+    arma::vec y_client = sat_data.y.elem(client_sat_idxs);
+    arma::vec z_client = sat_data.z.elem(client_sat_idxs);
+
+    // client velocities
+    arma::vec vx_client = sat_data.vx.elem(client_sat_idxs);
+    arma::vec vy_client = sat_data.vy.elem(client_sat_idxs);
+    arma::vec vz_client = sat_data.vz.elem(client_sat_idxs);
+
+    // available x,t for the service shuttle
+    arma::uvec t_service_idxs = arma::find((t_service_sat >= t_prev) % (t_service_sat <= t_request));
+    arma::vec available_t_service = t_service_sat.elem(t_service_idxs);
+
+    arma::vec available_x_service = x_service_sat.elem(t_service_idxs);
+    arma::vec available_y_service = y_service_sat.elem(t_service_idxs);
+    arma::vec available_z_service = z_service_sat.elem(t_service_idxs);
+
+    arma::vec available_vx_service = vx_service_sat.elem(t_service_idxs);
+    arma::vec available_vy_service = vy_service_sat.elem(t_service_idxs);
+    arma::vec available_vz_service = vz_service_sat.elem(t_service_idxs);
+
+    // available x,t for the client
+    arma::uvec t_client_idxs = arma::find((t_client <= t_request) % (t_client >= t_prev));
+    arma::vec available_t_client = t_client.elem(t_client_idxs);
+
+    arma::vec available_x_client = x_client.elem(t_client_idxs);
+    arma::vec available_y_client = y_client.elem(t_client_idxs);
+    arma::vec available_z_client = z_client.elem(t_client_idxs);
+
+    arma::vec available_vx_client = vx_client.elem(t_client_idxs);
+    arma::vec available_vy_client = vy_client.elem(t_client_idxs);
+    arma::vec available_vz_client = vz_client.elem(t_client_idxs);
+
+    DeltaVMinima = -1.0;
+
+    int sols_tot = 0;
+    double idealdep = 0;
+    double idealarr = 0;
+    // std::cout<<"finding optimal trajectory";
+    //  for every possible departure time from the service depot
+    for (int t_ser = 0; t_ser < available_t_service.n_elem; t_ser++)
+    {
+
+        // fetch valid arrival times and calculate possible times of flight
+        arma::uvec valid_arrivals = arma::find(available_t_client > available_t_service(t_ser));
+        arma::vec possible_tofs = available_t_client.elem(valid_arrivals) - available_t_service(t_ser);
+        arma::vec valid_t_client = available_t_client.elem(valid_arrivals);
+        // service station velocities at departure time
+        arma::vec3 v_service_loop = {available_vx_service(t_ser), available_vy_service(t_ser), available_vz_service(t_ser)};
+
+        // r vec at departure time
+        arma::vec3 r_service = {available_x_service(t_ser), available_y_service(t_ser), available_z_service(t_ser)};
+
+        // possible arrival locations and velocities of the client
+        arma::vec valid_arrivals_x_client = available_x_client.elem(valid_arrivals);
+        arma::vec valid_arrivals_y_client = available_y_client.elem(valid_arrivals);
+        arma::vec valid_arrivals_z_client = available_z_client.elem(valid_arrivals);
+
+        arma::vec valid_vx_client = available_vx_client.elem(valid_arrivals);
+        arma::vec valid_vy_client = available_vy_client.elem(valid_arrivals);
+        arma::vec valid_vz_client = available_vz_client.elem(valid_arrivals);
+
+        // for all possible times of flight for the given departure time
+        for (int t_cl = 0; t_cl < possible_tofs.n_elem; t_cl++)
+        {
+
+            // we don't need to check all possible times
+            // get the position vector of the client at time of arrival
+            arma::vec3 r_client_loop = {valid_arrivals_x_client(t_cl), valid_arrivals_y_client(t_cl), valid_arrivals_z_client(t_cl)};
+            arma::vec3 v_client_loop = {valid_vx_client(t_cl), valid_vy_client(t_cl), valid_vz_client(t_cl)};
+
+            // calculate the lambert transfers that are possible
+
+            if (method == "lambert")
+            {
+
+                std::vector<arma::vec> sols = lambert_solver(r_service, r_client_loop, possible_tofs(t_cl), MU_EARTH, 0, 100);
+
+                // for all possible lambert transfers compute the delta V
+                for (int sol = 0; sol < sols.size(); sol++)
+                {
+
+                    sols_tot += 1;
+
+                    // std::cout << "Solution number: " << sols_tot << std::endl;
+
+                    arma::vec v1sol_loop = get_v1(sols, sol);
+                    arma::vec v2sol_loop = get_v2(sols, sol);
+
+                    // std::cout << " V1: " << get_v1(sols,sol);
+                    // std::cout << " V2: " << get_v1(sols,sol);
+
+                    arma::vec deltaV1 = v1sol_loop - v_service_loop;
+                    arma::vec deltaV2 = v2sol_loop - v_client_loop;
+
+                    double deltaTotal = std::abs(arma::norm(deltaV1)) + std::abs(arma::norm(deltaV2));
+
+                    if (write_to_file == true)
+                    {
+
+                        arma::vec costs = {deltaTotal, arma::norm(v1sol_loop), arma::norm(v2sol_loop), possible_tofs(t_cl), available_t_service(t_ser), valid_t_client(t_cl)};
+                        arma::vec sol_v = {(double)sol};
+                        arma::vec sol_v2 = {v_service_loop(0), v_service_loop(1), v_service_loop(2), v_client_loop(0), v_client_loop(1), v_client_loop(2)};
+                        arma::vec vec_append = arma::join_cols(costs, r_service);
+                        vec_append = arma::join_cols(vec_append, r_client_loop);
+                        vec_append = arma::join_cols(vec_append, sol_v);
+                        vec_append = arma::join_cols(vec_append, sol_v2);
+                        trajs.push_back(vec_append);
+                    }
+
+                    // to parallelise with omp you will have to remove this conditional.
+                    // instead write solutions to a file or shared array and have a sparate loop identify the optimal solution
+
+                    // if more than one solution has already been calculated then compare to see if
+                    // new solution in better
+                    if ((sols_tot > 1) && (deltaTotal < DeltaVMinima))
+                    {
+
+                        DeltaVMinima = deltaTotal;
+
+                        v1sol = v1sol_loop;
+                        v2sol = v2sol_loop;
+
+                        r1sol = r_service;
+                        r2sol = r_client_loop;
+
+                        tof_optimal = possible_tofs(t_cl);
+
+                        idealarr = valid_t_client(t_cl);
+                        idealdep = available_t_service(t_ser);
+                    }
+
+                    else if (sols_tot == 1)
+                    {
+                        DeltaVMinima = deltaTotal;
+                    }
+                }
+            }
+
+            else
+            {
+                sols_tot += 1;
+
+                double transfer_duration = possible_tofs(t_cl);
+
+                arma::uword serv_time = arma::index_min( arma::abs(available_t_service - valid_t_client(t_cl)) );
+
+
+                double t2_x_service = available_x_service(serv_time);
+                double t2_y_service = available_y_service(serv_time);
+                double t2_z_service = available_z_service(serv_time);
+
+
+                double t2_vx_service = available_vx_service(serv_time);
+                double t2_vy_service = available_vy_service(serv_time);
+                double t2_vz_service = available_vz_service(serv_time);
+
+                arma::vec3 r_depot_edelbaum = {t2_x_service,t2_y_service, t2_z_service};
+                arma::vec3 v_depot_edelbaum = {t2_vx_service,t2_vy_service, t2_vz_service};
+
+
+
+                //double i_from = get_inclination(r_service, v_service_loop);
+                //double i_to = get_inclination(r_client_loop, v_client_loop);
+
+                //double plane_diff_angle = std::abs(i_from - i_to);
+                /*
+                // key form
+
+                int delta_raan;
+                unsigned int delta_a;
+                unsigned int transfer_type; // 1 for sat-sat, 2 for sat-depot, 3 for depot-sat
+                unsigned int delta_t;
+
+                */
+
+                orbital_elements oe_depot = orb_elems_from_rv(r_depot_edelbaum, v_depot_edelbaum);
+                orbital_elements oe_client = orb_elems_from_rv(r_client_loop, v_client_loop);
+                unsigned int flight_type = 0;
+
+                if( ( service_satname.find("service") == std::string::npos ) && ( client_satname.find("service") == std::string::npos ) ){
+
+                    flight_type = 1;
+
+                }
+
+                else if (client_satname.find("service") != std::string::npos){
+
+                    flight_type = 2;
+
+                }
+
+                else if (service_satname.find("service") != std::string::npos){
+
+                    flight_type = 3;
+
+                }
+
+                lookupkey key = make_key(oe_depot, oe_client, transfer_duration, flight_type);
+                double deltaVedelbaum = 1e22;
+
+
+                if (lookup.find(key) != lookup.end()){
+
+                    deltaVedelbaum = lookup[key];
+
+                }
+
+                else{
+
+                    deltaVedelbaum = calculate_edelbaum_deltaV(v_depot_edelbaum, v_client_loop, r_depot_edelbaum, r_client_loop, transfer_duration,"passive");
+                    lookup[key] = deltaVedelbaum;
+
+                }
+
+                //DeltaVMinima = deltaVedelbaum;
+
+                //double deltaVedelbaum = calculate_edelbaum_deltaV(v_service_loop, v_client_loop, r_service, r_client_loop);
+
+                //double deltaVedelbaum = calculate_edelbaum_deltaV(v_depot_edelbaum, v_client_edelbaum, plane_diff_angle);
+
+
+                //DeltaVMinima = deltaVedelbaum;
+
+                if ((sols_tot > 1) && (deltaVedelbaum < DeltaVMinima))
+                {
+
+                      tof_optimal = possible_tofs(t_cl);
+
+                      idealarr = valid_t_client(t_cl);
+                      idealdep = available_t_service(t_ser);
+
+                      DeltaVMinima = deltaVedelbaum;
+                }
+
+                else if (sols_tot == 1)
+                {
+
+                    DeltaVMinima = deltaVedelbaum;
+                }
+            }
+        }
+
+        // showProgressBar(t_ser, (int)available_t_service.n_elem);
+        // std::cout<<"\n";
+    }
+
+
+    t_prev = idealdep;
+    t_request = idealarr;
+
+    //std::cout << "ideal dep: " << idealdep << "," << "ideal arrival: " << idealarr << "\n";
+
+    // std::cout << "DeltaVMinima : " << DeltaVMinima << std::endl;
+}
+
+
+
+
 
 double compact_optimal_calc(std::string satname1, std::string satname2, double departure_time, double arrival_time, DataFrame simfile)
 {
@@ -279,6 +563,7 @@ double compact_optimal_calc(std::string satname1, std::string satname2, double d
     arma::vec v1sol, v2sol, r1sol, r2sol;
 
     std::vector<arma::vec> trajs;
+
 
     find_optimal_trajectory(satname1, satname2, departure_time, arrival_time, v1sol, v2sol, r1sol, r2sol,
                             tof_optimal, trajs, simfile, "lambert", false, deltaV_arrival);
@@ -292,16 +577,8 @@ void find_optimal_trajectory_no_iter(std::string service_satname, std::string cl
 
     // methods used on dataframes and the definition of the data structure
     // are both located in the data_access_lib.hpp file
-    std::vector<std::string> satnames = simfile["name"];
-
-    // .getNumeric casts the strings stored in the csv file to floats
-    arma::vec x_sat = simfile.getNumeric("x");
-    arma::vec y_sat = simfile.getNumeric("y");
-    arma::vec z_sat = simfile.getNumeric("z");
-    arma::vec vx_sat = simfile.getNumeric("vx");
-    arma::vec vy_sat = simfile.getNumeric("vy");
-    arma::vec vz_sat = simfile.getNumeric("vz");
-    arma::vec t_sat = simfile.getNumeric("time_s");
+    SatelliteData sat_data(simfile);
+    std::vector<std::string> satnames = sat_data.names;
 
     // find_idxs_of_match finds the indicies at which satnames == service_satname
     arma::uvec service_sat_idxs = find_idxs_of_match(satnames, service_satname);
@@ -326,7 +603,7 @@ void find_optimal_trajectory_no_iter(std::string service_satname, std::string cl
     }
 
     // Finding physical state params of the service satellite
-    arma::vec t_service_sat = t_sat.elem(service_sat_idxs);
+    arma::vec t_service_sat = sat_data.t.elem(service_sat_idxs);
     std::cout << "  t_service_sat size: " << t_service_sat.size() << std::endl;
 
     if (t_service_sat.size() == 0) {
@@ -340,31 +617,31 @@ void find_optimal_trajectory_no_iter(std::string service_satname, std::string cl
 
     double t_service_departure = t_service_sat(idx_dep); //(t_service_departure_idx);
 
-    arma::vec x_service = x_sat.elem(service_sat_idxs);
+    arma::vec x_service = sat_data.x.elem(service_sat_idxs);
     double x_service_sat = x_service(idx_dep);
 
-    arma::vec y_service = y_sat.elem(service_sat_idxs);
+    arma::vec y_service = sat_data.y.elem(service_sat_idxs);
     double y_service_sat = y_service(idx_dep);
 
-    arma::vec z_service = z_sat.elem(service_sat_idxs);
+    arma::vec z_service = sat_data.z.elem(service_sat_idxs);
     double z_service_sat = z_service(idx_dep);
 
-    arma::vec vx_service = vx_sat.elem(service_sat_idxs);
+    arma::vec vx_service = sat_data.vx.elem(service_sat_idxs);
     double vx_service_sat = vx_service(idx_dep);
 
-    arma::vec vy_service = vy_sat.elem(service_sat_idxs);
+    arma::vec vy_service = sat_data.vy.elem(service_sat_idxs);
     double vy_service_sat = vy_service(idx_dep);
 
-    arma::vec vz_service = vz_sat.elem(service_sat_idxs);
+    arma::vec vz_service = sat_data.vz.elem(service_sat_idxs);
     double vz_service_sat = vz_service(idx_dep);
 
 
     // Finding physical state params of the client satellite
-    arma::vec t_client = t_sat.elem(client_sat_idxs);
+    arma::vec t_client = sat_data.t.elem(client_sat_idxs);
 
     if (t_client.size() == 0) {
         std::cout << "ERROR: t_client is empty!" << std::endl;
-        DeltaVMinima = 1e10; // Large penalty value
+        DeltaVMinima = LARGE_PENALTY_DELTA_V; // Large penalty value
         return;
     }
 
@@ -375,22 +652,22 @@ void find_optimal_trajectory_no_iter(std::string service_satname, std::string cl
 
     double t_client_arrival = t_client(t_client_arrival_idx);
 
-    arma::vec x_client = x_sat.elem(client_sat_idxs);
+    arma::vec x_client = sat_data.x.elem(client_sat_idxs);
     double x_client_sat = x_client(t_client_arrival_idx);
 
-    arma::vec y_client = y_sat.elem(client_sat_idxs);
+    arma::vec y_client = sat_data.y.elem(client_sat_idxs);
     double y_client_sat = y_client(t_client_arrival_idx);
 
-    arma::vec z_client = z_sat.elem(client_sat_idxs);
+    arma::vec z_client = sat_data.z.elem(client_sat_idxs);
     double z_client_sat = z_client(t_client_arrival_idx);
 
-    arma::vec vx_client = vx_sat.elem(client_sat_idxs);
+    arma::vec vx_client = sat_data.vx.elem(client_sat_idxs);
     double vx_client_sat = vx_client(t_client_arrival_idx);
 
-    arma::vec vy_client = vy_sat.elem(client_sat_idxs);
+    arma::vec vy_client = sat_data.vy.elem(client_sat_idxs);
     double vy_client_sat = vy_client(t_client_arrival_idx);
 
-    arma::vec vz_client = vz_sat.elem(client_sat_idxs);
+    arma::vec vz_client = sat_data.vz.elem(client_sat_idxs);
     double vz_client_sat = vz_client(t_client_arrival_idx);
 
     DeltaVMinima = -1.0;
@@ -411,7 +688,7 @@ void find_optimal_trajectory_no_iter(std::string service_satname, std::string cl
     // Add time of flight validation - focus on numerical issues only (allow weeks-long missions)
     if (tof_largest <= 0 || tof_largest > 1e15 || std::isnan(tof_largest) || std::isinf(tof_largest)) {
         std::cout << "Invalid time of flight detected: " << tof_largest << ", returning high deltaV penalty" << std::endl;
-        DeltaVMinima = 1e10; // Large penalty value
+        DeltaVMinima = LARGE_PENALTY_DELTA_V; // Large penalty value
         return;
     }
 

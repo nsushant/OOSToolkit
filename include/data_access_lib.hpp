@@ -101,4 +101,6 @@ struct DataFrame
     }
 };
 
+
+
 arma::uvec find_idxs_of_match(std::vector<std::string> s, std::string value_to_match);

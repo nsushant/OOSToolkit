@@ -7,6 +7,7 @@
 #include <string>
 #include <fstream>
 #include <armadillo>
+#include <numeric>
 #include "Trajectory_selection.hpp"
 #include "data_access_lib.hpp"
 
@@ -16,6 +17,8 @@ Author : S. Nigudkar (2025)
 Functions to initialize schedules and find the optimal schedule using local search.
 
 */
+
+
 
 // structs
 struct task_block
@@ -99,4 +102,43 @@ std::vector<size_t> argsort(const std::vector<double>& v);
 double round_down_100 (double x);
  
 schedule_struct local_search_opt_schedule_lambert_only_late_acceptance(double &init_deltaV, schedule_struct init_schedule, std::vector<double> dt_move,
-                                                                       DataFrame simfile, double service_time, std::vector<std::string> move_methods);
+                                                                        DataFrame simfile, double service_time, std::vector<std::string> move_methods);
+
+// Helper functions for readability improvements
+
+// Penalty values for optimization algorithms
+constexpr double LARGE_PENALTY_DELTA_V = 1e10;
+constexpr double NUMERICAL_INFINITY = 1e7;
+
+// Default algorithm parameters
+constexpr double DEFAULT_STEP_SIZE = 1000.0;
+constexpr int DEFAULT_MAX_ITERATIONS = 100;
+
+// Bounds checking helpers
+constexpr bool has_previous_block(int b_index) { 
+    return b_index > 0; 
+}
+
+constexpr bool has_next_block(int b_index, size_t block_count) { 
+    return b_index + 1 < block_count; 
+}
+
+constexpr bool is_valid_block_index(int b_index, size_t block_count) {
+    return b_index >= 0 && static_cast<size_t>(b_index) < block_count;
+}
+
+constexpr bool is_not_first_block(int b_index) { 
+    return b_index > 0; 
+}
+
+constexpr bool is_not_last_block(int b_index, size_t block_count) { 
+    return static_cast<size_t>(b_index) < block_count - 1; 
+}
+
+// DeltaV calculation helper
+inline double calculate_total_deltaV(const schedule_struct& schedule) {
+    return std::accumulate(schedule.blocks.begin(), schedule.blocks.end(), 0.0,
+        [](double total, const task_block& block) {
+            return total + std::abs(block.deltaV_arrival);
+        });
+}

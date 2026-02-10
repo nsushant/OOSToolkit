@@ -11,8 +11,7 @@
 #include <thread>
 #include <vector>
 
-#include "Tabu_search.hpp"
-#include "LambertSolver.hpp"
+
 #include "Local_search.hpp"
 #include "Nbody.hpp"
 #include "Trajectory_selection.hpp"
@@ -20,6 +19,7 @@
 #include "Exact_methods.hpp"
 #include "Simulated_Annealing.hpp"
 #include "VNS.hpp"
+#include "DP.hpp"
 
 double run_es(schedule_struct &sched_in);
 
@@ -35,7 +35,7 @@ double run_es(schedule_struct &sched_in)
     task_block fromblock = sched_in.blocks[i - 1];
     task_block toblock = sched_in.blocks[i];
 
-    run_exhaustive_search(fromblock.satname, toblock.satname, fromblock.departure_time, toblock.arrival_constraint, DeltaVchange, "WalkerDelta.csv", "", "edelbaum");
+    run_exhaustive_search(fromblock.satname, toblock.satname, fromblock.departure_time, toblock.arrival_constraint, DeltaVchange, "../data/WalkerDelta.csv", "", "edelbaum");
     std::cout << "\n";
   }
 
@@ -82,28 +82,10 @@ void show_orb_elems(DataFrame &simfile, std::vector<std::string> &sats_in_demand
 int main(int argc, char *argv[])
 {
 
-  std::cout << "------------------Running Simulation---------------------" << std::endl;
-
-
-  force_model fmodel(false,false);
-
-  double altitude_m = 700 * 1000;
-  int num_planes = 5;
-  int num_satellites = 30;
-  int relative_phase = 1;
-  double inclination_in_deg = 56;
-  double inclinationDiff_in_deg = 2;
-
-  run_simulation("WalkerDelta.csv", "walker_delta", 770000, 10,
-                 altitude_m, num_planes, num_satellites, relative_phase,
-                 deg_to_rads(inclination_in_deg), fmodel, 1.0, deg_to_rads(inclinationDiff_in_deg));
-
-  std::cout << "finished running sim" << "\n";
-
   std::cout << "------------------Running Local Search---------------------" << std::endl;
 
   // Setting up an initial schedule
-  DataFrame simfile("data/WalkerDelta.csv");
+  DataFrame simfile("../data/WalkerDelta.csv");
 
   std::vector<std::string> satnames = simfile["name"];
 
@@ -135,30 +117,7 @@ int main(int argc, char *argv[])
   // formulation 1
   std::vector<std::string> moves_to_consider = {"sub arrival",  "add arrival", "swap", "swap_inv"};
 
-  // run_local_search_tfixed
 
-  //schedule_struct ls = run_local_search(simfile, move_size, moves_to_consider,
-    //                                    sat_names_in_schedule, t_depart, t_arrive,
-      //                                  deltaV_of_schedule_heuristic, service_time);
-
-  //view_schedule(ls);
-
-
-  //vn_search(deltaV_of_schedule_heuristic, ls, move_size, simfile, service_time, moves_to_consider, 500);
-
-  //run_vn_search(simfile,  move_size,
-    //            moves_to_consider,
-      //               sat_names_in_schedule,
-        //             t_depart, t_arrive,
-          //           deltaV_of_schedule_heuristic,service_time, 60);
-
-
-
-  // run_vn_search_fixed_tarrive(simfile, move_size, moves_to_consider,
-  //             sat_names_in_schedule, t_depart, t_arrive,
-  //           deltaV_of_schedule_heuristic, service_time, 400);
-
-  //std::cout << "Heuristic Delta V : " << deltaV_of_schedule_heuristic << "\n";
 
   std::cout << "------------------Running Comprehensive Scaling Comparison---------------------" << std::endl;
 
@@ -167,42 +126,6 @@ int main(int argc, char *argv[])
 
   // int ret = dynamic_program_fixed_tasksize_Tfixed(schedule_init, 100, 1,schedule_init.blocks.size()-1, 70000,simfile);
 
-  // view_schedule(schedule_init);
-
-
-  /*std::cout << (int)schedule_init.blocks.size() << std::endl;
-
-  finding_individual_minimas_dynamic_programming(schedule_init, simfile, 100);
-
-  view_schedule(schedule_init);
-
-  double deltaVoptimal_exact = 0.0;
-
-  for (int b = 0; b < schedule_init.blocks.size(); b++)
-  {
-
-    deltaVoptimal_exact += schedule_init.blocks[b].deltaV_arrival;
-  }
-
-
-
-  */
-
-  /*
-
-  std::ofstream DeltaVsGrid("../data/DeltaV_vs_movesize.csv");
-  DeltaVsGrid << "move_size,deltaV_improvement,time_improvement" << "\n";
-
-  // write rows to csv
-
-  for (int row = 0; row < grid_move_dts.size(); row++) {
-
-    DeltaVsGrid << grid_move_dts[row] << "," << deltaVsobtained[row] << ","
-                << TimeImprovementObtained[row] << "\n";
-  }
-
-  DeltaVsGrid.close();
-  */
 
   return 0;
 }
@@ -221,7 +144,7 @@ void run_comprehensive_scaling_tests()
   std::ofstream results_file("../data/scaling_comparison_results.csv");
   results_file << "visits,method,time_ms,deltaV,iterations,quality_gap,success" << std::endl;
 
-  DataFrame simfile("data/WalkerDelta.csv");
+  DataFrame simfile("../data/WalkerDelta.csv");
 
   for (int visits : visit_counts)
   {
@@ -245,19 +168,31 @@ void run_comprehensive_scaling_tests()
     std::cout << "Testing Exact Method..." << std::endl;
     try {
 
-    auto start_exact = std::chrono::high_resolution_clock::now();
+      auto start_exact = std::chrono::high_resolution_clock::now();
       //double deltaV_exact = run_es(schedule_base);
 
 
-      schedule_struct opt_exact = branch_and_bound(schedule_base, simfile, initdeltavDP);
-      double deltaV_exact = deltavtotcalc(opt_exact);
+      //schedule_struct opt_exact = branch_and_bound(schedule_base, simfile, initdeltavDP);
+      //double deltaV_exact = deltavtotcalc(opt_exact);
 
+      double Tmax = schedule_base.blocks[schedule_base.blocks.size() - 1].arrival_constraint;
 
+      std::unordered_map<lookupkey, double, HashKey> lookup ;
+
+      // dynamic program to minimize the total delta V of a schedule given an arrangement
+      DP(schedule_base, initdeltavDP, simfile);
+
+      std::cout<< initdeltavDP << "\n";
+
+      view_schedule(schedule_base);
+      double deltaV_exact = deltavtotcalc(schedule_base);
       auto end_exact = std::chrono::high_resolution_clock::now();
 
       double time_exact_ms = std::chrono::duration<double, std::milli>(end_exact - start_exact).count();
 
       std::cout << "Exact Method - Time: " << time_exact_ms << "ms, DeltaV: " << deltaV_exact << std::endl;
+
+
 
       // Write exact method results
       results_file << visits << ",exact," << time_exact_ms << "," << deltaV_exact << ",1,0.0,true" << std::endl;
@@ -278,24 +213,6 @@ void run_comprehensive_scaling_tests()
                      sat_names_in_schedule,
                       t_depart, t_arrive,
                      deltaV_ls,service_time, 10);
-
-      //vn_search(deltaV_ls, schedule_base, move_size, simfile, service_time, moves_to_consider, 200);
-
-
-      //view_schedule(schedule_base);
-      //void vn_search(double &init_deltaV, schedule_struct &init_schedule, std::vector<double> dt_move,
-        //       DataFrame simfile, double service_time, std::vector<std::string> move_methods, int max_iter)
-
-      //run_local_search( simfile, move_size, moves_to_consider,
-        //                sat_names_in_schedule, t_depart, t_arrive,deltaV_ls,service_time);
-
-
-
-
-      //schedule_base = local_search_opt_schedule_lambert_only_late_acceptance(deltaV_ls, schedule_base, move_size,
-                                                                              //simfile, service_time, moves_to_consider);
-
-      //view_schedule(schedule_base);
 
       auto end_ls = std::chrono::high_resolution_clock::now();
 
