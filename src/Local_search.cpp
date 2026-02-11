@@ -14,6 +14,7 @@
 #include <vector>
 #include <random>
 #include <chrono>
+#include <limits>
 /*
 Author : S. Nigudkar (2025)
 
@@ -847,6 +848,9 @@ schedule_struct local_search_opt_schedule_lambert_only(double &init_deltaV, sche
       } // closes iteration over all move sizes
     } // closes iteration over all the moves
 
+    if (deltaVs_of_neighbourhood.empty()) {
+      break; // No feasible neighbourhood solutions found
+    }
     neighbourhood_minima = find_minima_val(deltaVs_of_neighbourhood);
 
     // if no improvement is found, then stop

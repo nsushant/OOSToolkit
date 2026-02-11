@@ -12,7 +12,10 @@
 #include "data_access_lib.hpp"
 #include "Nbody.hpp"
 #include "Local_search.hpp"
-#include "DP.hpp"
+
+// Forward declarations for DP types
+struct lookupkey;
+struct HashKey;
 
 
 /*

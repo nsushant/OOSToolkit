@@ -8,8 +8,10 @@
 #include <fstream>
 #include <armadillo>
 #include <chrono>
+#include "data_access_lib.hpp"
 
-
+// Forward declaration to avoid circular dependency
+struct schedule_struct;
 /*
 Author : S. Nigudkar (2025)
 
@@ -173,3 +175,6 @@ void run_simulation(    std::string save_to_file, std::string arrangement, doubl
                         double altitude_m,double num_planes, double num_satellites,
                         double relative_phase, double inclination_in_radians,
                         force_model fmodel ,double satmass=1.0,double idiff=0.0);
+
+
+schedule_struct create_instance(int num_visits, DataFrame simfile);

@@ -30,7 +30,7 @@ struct task_block
     double service_duration = 0.0;
     double arrival_constraint = 0.0;
     double departure_time = arrival_time + service_duration;
-    double deltaVbudget = 0.0; 
+    double deltaVbudget = 0.0;
 
 };
 
@@ -98,9 +98,9 @@ int find_first_index_less_than(const std::vector<double> &v, double x);
 
 
 int find_max_index(std::vector<double> v);
-std::vector<size_t> argsort(const std::vector<double>& v); 
+std::vector<size_t> argsort(const std::vector<double>& v);
 double round_down_100 (double x);
- 
+
 schedule_struct local_search_opt_schedule_lambert_only_late_acceptance(double &init_deltaV, schedule_struct init_schedule, std::vector<double> dt_move,
                                                                         DataFrame simfile, double service_time, std::vector<std::string> move_methods);
 
@@ -115,24 +115,24 @@ constexpr double DEFAULT_STEP_SIZE = 1000.0;
 constexpr int DEFAULT_MAX_ITERATIONS = 100;
 
 // Bounds checking helpers
-constexpr bool has_previous_block(int b_index) { 
-    return b_index > 0; 
+constexpr bool has_previous_block(int b_index) {
+    return b_index > 0;
 }
 
-constexpr bool has_next_block(int b_index, size_t block_count) { 
-    return b_index + 1 < block_count; 
+constexpr bool has_next_block(int b_index, size_t block_count) {
+    return b_index + 1 < block_count;
 }
 
 constexpr bool is_valid_block_index(int b_index, size_t block_count) {
     return b_index >= 0 && static_cast<size_t>(b_index) < block_count;
 }
 
-constexpr bool is_not_first_block(int b_index) { 
-    return b_index > 0; 
+constexpr bool is_not_first_block(int b_index) {
+    return b_index > 0;
 }
 
-constexpr bool is_not_last_block(int b_index, size_t block_count) { 
-    return static_cast<size_t>(b_index) < block_count - 1; 
+constexpr bool is_not_last_block(int b_index, size_t block_count) {
+    return static_cast<size_t>(b_index) < block_count - 1;
 }
 
 // DeltaV calculation helper

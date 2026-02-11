@@ -16,7 +16,6 @@
 #include "Nbody.hpp"
 #include "Trajectory_selection.hpp"
 #include "data_access_lib.hpp"
-#include "Exact_methods.hpp"
 #include "Simulated_Annealing.hpp"
 #include "VNS.hpp"
 #include "DP.hpp"
@@ -150,16 +149,12 @@ void run_comprehensive_scaling_tests()
   {
     std::cout << "\n===== Testing " << visits << " visits =====" << std::endl;
 
-    // Setup instance
-    double t_final = 150000 * visits / 8 - (150000 * visits / 8 % 100);
-    std::vector<double> t_depart;
-    std::vector<double> t_arrive;
+    schedule_struct schedule_base = create_instance( visits, simfile);
+    double initdeltavDP =deltavtotcalc(schedule_base);
+    //schedule_struct schedule_base = create_schedule_lambert_only(initdeltavDP, t_arrive, t_depart, sat_names_in_schedule, simfile, service_time);
 
-    init_dep_arrival_times_strict_timespan(t_depart, t_arrive, t_final, service_time, visits);
-    std::vector<std::string> sat_names_in_schedule = init_satname_array(depot_name, client_satnames, false, visits);
+    std::cout << "initdeltaVDP:" << initdeltavDP << "\n";
 
-    double initdeltavDP = 0.0;
-    schedule_struct schedule_base = create_schedule_lambert_only(initdeltavDP, t_arrive, t_depart, sat_names_in_schedule, simfile, service_time);
 
     view_schedule(schedule_base);
 
@@ -168,34 +163,30 @@ void run_comprehensive_scaling_tests()
     std::cout << "Testing Exact Method..." << std::endl;
     try {
 
+      schedule_struct schedule_exact = schedule_base;
+
       auto start_exact = std::chrono::high_resolution_clock::now();
-      //double deltaV_exact = run_es(schedule_base);
-
-
-      //schedule_struct opt_exact = branch_and_bound(schedule_base, simfile, initdeltavDP);
-      //double deltaV_exact = deltavtotcalc(opt_exact);
 
       double Tmax = schedule_base.blocks[schedule_base.blocks.size() - 1].arrival_constraint;
 
-      std::unordered_map<lookupkey, double, HashKey> lookup ;
+      std::cout<<"running DP \n";
 
       // dynamic program to minimize the total delta V of a schedule given an arrangement
-      DP(schedule_base, initdeltavDP, simfile);
+      DP(schedule_exact, initdeltavDP, simfile);
 
-      std::cout<< initdeltavDP << "\n";
+      std::cout<< "initdeltavDP:"<<initdeltavDP << "\n";
 
-      view_schedule(schedule_base);
-      double deltaV_exact = deltavtotcalc(schedule_base);
+      view_schedule(schedule_exact);
+
       auto end_exact = std::chrono::high_resolution_clock::now();
 
       double time_exact_ms = std::chrono::duration<double, std::milli>(end_exact - start_exact).count();
 
-      std::cout << "Exact Method - Time: " << time_exact_ms << "ms, DeltaV: " << deltaV_exact << std::endl;
-
-
+      std::cout << "Exact Method - Time: " << time_exact_ms << "ms, DeltaV: " << initdeltavDP << std::endl;
 
       // Write exact method results
-      results_file << visits << ",exact," << time_exact_ms << "," << deltaV_exact << ",1,0.0,true" << std::endl;
+      results_file << visits << ",exact," << time_exact_ms << "," << initdeltavDP << ",1,0.0,true" << std::endl;
+
 
       // Test Local Search (using same base schedule)
       std::cout << "Testing Local Search..." << std::endl;
@@ -203,23 +194,34 @@ void run_comprehensive_scaling_tests()
       std::vector<double> move_size = {15000,10000,9000,8000,6000,5000, 4000, 3500, 3000, 2000, 1500, 1000, 500, 100};
       std::vector<std::string> moves_to_consider = { "sub", "add","swap", "swap_inv"};
 
+      schedule_struct schedule_metah = schedule_base;
 
-      double deltaV_ls = initdeltavDP;
+      double deltaV_ls = deltavtotcalc(schedule_metah);
+
+      std::cout<<"start with delta V :" << deltaV_ls << "\n";
+
       auto start_ls = std::chrono::high_resolution_clock::now();
 
 
-      run_vn_search( simfile,  move_size,
+      /*run_vn_search( simfile,  move_size,
                      moves_to_consider,
                      sat_names_in_schedule,
                       t_depart, t_arrive,
                      deltaV_ls,service_time, 10);
+
+                     */
+
+      vn_search(deltaV_ls, schedule_metah, move_size,
+                simfile, schedule_metah.blocks[1].service_duration,
+                moves_to_consider, 15);
+
 
       auto end_ls = std::chrono::high_resolution_clock::now();
 
       double time_ls_ms = std::chrono::duration<double, std::milli>(end_ls - start_ls).count();
 
       // Calculate quality gap
-      double quality_gap = std::abs(deltaV_ls - deltaV_exact) / deltaV_exact * 100.0;
+      double quality_gap = std::abs(deltaV_ls - initdeltavDP) / initdeltavDP * 100.0;
 
       std::cout << "Local Search - Time: " << time_ls_ms << "ms, DeltaV: " << deltaV_ls
                 << ", Gap: " << quality_gap << "%" << std::endl;

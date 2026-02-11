@@ -11,6 +11,7 @@
 #include "data_access_lib.hpp"
 #include "Nbody.hpp"
 #include "Trajectory_selection.hpp"
+#include "DP.hpp"
 #include "LowThrustAnalytical.hpp"
 
 
@@ -328,11 +329,11 @@ void find_optimal_trajectory(std::string service_satname, std::string client_sat
     arma::vec available_vy_client = vy_client.elem(t_client_idxs);
     arma::vec available_vz_client = vz_client.elem(t_client_idxs);
 
-    DeltaVMinima = -1.0;
+    DeltaVMinima = 1e22;
 
     int sols_tot = 0;
-    double idealdep = 0;
-    double idealarr = 0;
+    double idealdep = t_prev;
+    double idealarr = t_request;
     // std::cout<<"finding optimal trajectory";
     //  for every possible departure time from the service depot
     for (int t_ser = 0; t_ser < available_t_service.n_elem; t_ser++)
@@ -439,6 +440,10 @@ void find_optimal_trajectory(std::string service_satname, std::string client_sat
                 sols_tot += 1;
 
                 double transfer_duration = possible_tofs(t_cl);
+
+                if (transfer_duration < tstep_size){
+                    continue;
+                };
 
                 arma::uword serv_time = arma::index_min( arma::abs(available_t_service - valid_t_client(t_cl)) );
 
@@ -670,7 +675,7 @@ void find_optimal_trajectory_no_iter(std::string service_satname, std::string cl
     arma::vec vz_client = sat_data.vz.elem(client_sat_idxs);
     double vz_client_sat = vz_client(t_client_arrival_idx);
 
-    DeltaVMinima = -1.0;
+    DeltaVMinima = 1e22;
 
     arma::vec r_service = {x_service_sat, y_service_sat, z_service_sat};
     arma::vec r_client = {x_client_sat, y_client_sat, z_client_sat};

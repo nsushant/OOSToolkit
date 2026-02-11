@@ -11,11 +11,9 @@
 #include <unordered_set>
 #include <functional>
 
-#include "Local_search.hpp"
-#include "data_access_lib.hpp"
-#include "Trajectory_selection.hpp"
 #include "DP.hpp"
 #include "Nbody.hpp"
+#include "LowThrustAnalytical.hpp"
 
 
 
@@ -63,6 +61,7 @@ void adjust_trajectories(   schedule_struct& sched, int& blim, double& deltaV_mi
                             std::unordered_map<lookupkey, double, HashKey>& lookup,
                             DataFrame simfile ){
 
+
     double deltaV_local = deltaV_min;
     double deltaV_local_add = deltaV_local;
     double deltaV_local_sub = deltaV_local;
@@ -72,14 +71,13 @@ void adjust_trajectories(   schedule_struct& sched, int& blim, double& deltaV_mi
     std::vector<arma::vec> trajs;
     double tof_optimal;
 
-    int b = 1;
 
-    while(b <= blim){
+    for (int b = 0 ; b <= blim; b++){
 
             bool feasibility_condition = false;
 
 
-            if(b< blim){
+            if((b< blim) && b > 0){
 
                 feasibility_condition = ((sched.blocks[b].departure_time <= sched.blocks[b+1].arrival_time) &&
                                          (sched.blocks[b].departure_time <= sched.blocks[b].arrival_constraint));
@@ -92,9 +90,12 @@ void adjust_trajectories(   schedule_struct& sched, int& blim, double& deltaV_mi
 
             }
 
+
             if(feasibility_condition == true){
 
                 //positive increment
+
+                if (b+1<sched.blocks.size()) {
 
                 deltaV_local_add -= sched.blocks[b].deltaV_arrival;
                 deltaV_local_add -= sched.blocks[b+1].deltaV_arrival;
@@ -110,21 +111,26 @@ void adjust_trajectories(   schedule_struct& sched, int& blim, double& deltaV_mi
                 deltaV_local_add += toblock.deltaV_arrival;
 
 
-                dep_add = sched.blocks[b-1].departure_time;
+                if (b>= 1){
+                    dep_add = sched.blocks[b-1].departure_time;
 
-                find_optimal_trajectory_no_iter(sched.blocks[b-1].satname, fromblock.satname, dep_add,
+                    find_optimal_trajectory_no_iter(sched.blocks[b-1].satname, fromblock.satname, dep_add,
                     fromblock.arrival_time, simfile, fromblock.deltaV_arrival, "edelbaum");
 
-                deltaV_local_add += fromblock.deltaV_arrival;
+                    deltaV_local_add += fromblock.deltaV_arrival;
+                }
+
+
+                }
 
 
                 //negative increment
 
+                if (b>0){
                 // b - 1 can be at minimum 0 (when b = 1).
 
                 // at b=1 or b-1 =0 we do not have a defined arrival delta V
                 deltaV_local_sub -= (b > 1) ? sched.blocks[b - 1].deltaV_arrival: 0.0 ;
-
                 deltaV_local_sub -= sched.blocks[b].deltaV_arrival ;
 
 
@@ -133,9 +139,10 @@ void adjust_trajectories(   schedule_struct& sched, int& blim, double& deltaV_mi
 
                 find_optimal_trajectory(fromblock_sub.satname, toblock_sub.satname, fromblock_sub.departure_time,
                     toblock_sub.arrival_time, v1sol, v2sol, r1sol, r2sol, tof_optimal, trajs, simfile, "edelbaum",
-                    false, toblock_sub.deltaV_arrival);
+                    false, toblock_sub.deltaV_arrival,lookup);
 
-                deltaV_local_add += toblock_sub.deltaV_arrival;
+                deltaV_local_sub += toblock_sub.deltaV_arrival;
+
 
                 //ensuring that the fromblock has a valid previous index
                 if(b > 1){
@@ -144,7 +151,10 @@ void adjust_trajectories(   schedule_struct& sched, int& blim, double& deltaV_mi
 
                     find_optimal_trajectory_no_iter(sched.blocks[b-2].satname, fromblock_sub.satname, dep_sub,
                     fromblock_sub.arrival_time, simfile, fromblock_sub.deltaV_arrival, "edelbaum");
-                    deltaV_local_add += fromblock_sub.deltaV_arrival;
+
+                    deltaV_local_sub += fromblock_sub.deltaV_arrival;
+
+                }
 
                 }
 
@@ -156,9 +166,10 @@ void adjust_trajectories(   schedule_struct& sched, int& blim, double& deltaV_mi
                         sched.blocks[b-1] = fromblock_sub;
                         sched.blocks[b] = toblock_sub;
 
+
                     }
 
-                    else{
+                    else if (b+1<sched.blocks.size()){
 
                         deltaV_local = deltaV_local_add;
                         sched.blocks[b+1] = toblock;
@@ -170,9 +181,10 @@ void adjust_trajectories(   schedule_struct& sched, int& blim, double& deltaV_mi
 
             }
 
-        b++;
-
     }
+
+    deltaV_min = deltaV_local;
+
 
 }
 
@@ -185,21 +197,18 @@ void adjust_trajectories(   schedule_struct& sched, int& blim, double& deltaV_mi
 
 void DP (schedule_struct& sched, double& deltav_init, DataFrame simfile){
 
-    int blim = 0;
-
-    double deltaV_min = 1e23;
 
     std::unordered_map<lookupkey, double, HashKey> lookup;
 
-    while (blim < sched.blocks.size()){
+    for (int blim = 0;  blim < sched.blocks.size(); blim++ ){
+
+        std::cout << blim << "\n";
 
         // update sched block positions to minimium delta V positions.
         // update deltaVmin if improvement is found.
         // if improvement is not found terminate while loop.
 
-        adjust_trajectories(sched, blim, deltaV_min, lookup, simfile);
-
-        blim++;
+        adjust_trajectories(sched, blim, deltav_init, lookup, simfile);
 
     }
 

@@ -22,12 +22,12 @@ search.
 
 int safe_sizet_to_int(size_t s);
 
-double find_minima_val(std::vector<double> v);
+double find_minima_val(const std::vector<double>& v);
 
-int find_minima_index(std::vector<double> v);
+int find_minima_index(const std::vector<double>& v);
 
 void vn_search(double &init_deltaV, schedule_struct &init_schedule, std::vector<double> dt_move,
-               DataFrame simfile, double service_time, std::vector<std::string> move_methods, int max_iter);
+               DataFrame simfile, double service_time, std::vector<std::string>& move_methods, int max_iter);
 
 void run_vn_search(DataFrame simfile, std::vector<double> move_size,
                    std::vector<std::string> moves_to_consider,

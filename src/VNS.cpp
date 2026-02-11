@@ -13,6 +13,7 @@
 #include <numeric>
 #include <map>
 #include <algorithm>
+#include <limits>
 /*
 Author : S. Nigudkar (2025)
 
@@ -30,22 +31,22 @@ int safe_sizet_to_int(size_t s)
   return static_cast<int>(s);
 }
 
-double find_minima_val(std::vector<double> v)
+double find_minima_val(const std::vector<double>& v)
 {
-
+  if (v.empty()) {
+    return std::numeric_limits<double>::infinity();
+  }
   auto itmin = std::min_element(v.begin(), v.end());
-  double minima = *itmin; // smallest element from dereferenced iterator
-
-  return minima;
+  return *itmin; // smallest element from dereferenced iterator
 }
 
-int find_minima_index(std::vector<double> v)
+int find_minima_index(const std::vector<double>& v)
 {
-
+  if (v.empty()) {
+    return -1;
+  }
   auto itmin = std::min_element(v.begin(), v.end());
-  int index_minima = std::distance(v.begin(), itmin);
-
-  return index_minima;
+  return std::distance(v.begin(), itmin);
 }
 
 void vn_search(double &init_deltaV, schedule_struct &init_schedule, std::vector<double> dt_move,
@@ -204,6 +205,14 @@ void vn_search(double &init_deltaV, schedule_struct &init_schedule, std::vector<
 
     } // closes iteration over the full schedule
 
+    if (deltaVs_of_neighbourhood.empty()) {
+      move_choice += 1;
+      if (move_choice -1 >= (move_methods.size())) {
+        move_choice -= move_choice;
+        move_choice += 1;
+      }
+      continue;
+    }
     neighbourhood_minima = find_minima_val(deltaVs_of_neighbourhood);
     // std::cout<< "neighbourhood_minima : "<< neighbourhood_minima <<
     // std::endl; std::cout<< "neighbourhood_maxima : "<<

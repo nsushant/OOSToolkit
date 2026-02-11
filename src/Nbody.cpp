@@ -7,7 +7,11 @@
 #include <fstream>
 #include <armadillo>
 #include <chrono>
+#include <random>
+
 #include "Nbody.hpp"
+#include "Local_search.hpp"
+#include "data_access_lib.hpp"
 
 /*
 Author : S. Nigudkar (2025)
@@ -786,7 +790,7 @@ class Simulation{
         void run_simulation(double t_end,double dt, std::string file_to_write){
 
             std::ofstream csv("../data/"+file_to_write);
-csv << "time_s,index,name,x,y,z,vx,vy,vz,semi_major_axis,eccentricity,inclination,RAAN,arg_periapsis,true_anomaly\n";
+            csv << "time_s,index,name,x,y,z,vx,vy,vz,semi_major_axis,eccentricity,inclination,RAAN,arg_periapsis,true_anomaly\n";
 
             double t = 0.0;
             std::cout<<"Running Simulation";
@@ -844,3 +848,82 @@ csv << "time_s,index,name,x,y,z,vx,vy,vz,semi_major_axis,eccentricity,inclinatio
 
 
 };
+
+
+
+schedule_struct create_instance(int num_visits, DataFrame simfile){
+
+    std::vector<double> t_depart;
+    std::vector<double> t_arrive;
+
+    double initdeltav = 1e22;
+
+    double service_time = 18000;
+
+    double t_final = 350000 * num_visits;
+
+    init_dep_arrival_times_strict_timespan( t_depart, t_arrive, t_final, service_time, num_visits );
+
+    SatelliteData sat_data(simfile);
+
+    std::vector<std::string> satnames;
+    std::vector<std::string> service_names;
+    std::vector<std::string> client_names;
+
+    for(std::string name : sat_data.names ){
+
+        if(name.find("service") != std::string::npos){
+            service_names.push_back(name);
+        }
+
+        else{
+
+            client_names.push_back(name);
+
+        }
+
+    }
+
+    std::mt19937 gen(std::random_device{}());
+    std::bernoulli_distribution service_dist(0.3);
+    std::bernoulli_distribution client_dist(0.7);
+    std::uniform_int_distribution<size_t> service_id_dist(0, service_names.size() - 1);
+
+
+    int sats = 0 ;
+
+
+    while(sats < num_visits){
+
+        //bool value_service = service_dist(gen);
+        //bool value_client  = client_dist(gen);
+
+        //if(value_service == true){
+
+        size_t idx = service_id_dist(gen);
+        satnames.push_back(service_names[idx]);
+
+
+            //}
+
+        //if(value_client == false){
+
+            std::uniform_int_distribution<size_t> client_id_dist(0, service_names.size() - 1);
+            idx = client_id_dist(gen);
+
+            satnames.push_back(client_names[idx]);
+            client_names.erase(client_names.begin() + idx);
+
+            sats++;
+        //}
+
+    }
+
+    size_t idx = service_id_dist(gen);
+    satnames.push_back(service_names[idx]);
+
+    schedule_struct schedule_base = create_schedule_lambert_only(initdeltav, t_arrive, t_depart, satnames, simfile, service_time);
+    return schedule_base;
+
+
+}

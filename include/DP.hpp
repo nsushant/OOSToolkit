@@ -1,4 +1,6 @@
 
+#pragma once
+
 #include <algorithm>
 #include <armadillo>
 #include <cassert>
@@ -56,7 +58,7 @@ struct HashKey{
 
 };
 
-double deltavtotcalc(schedule_struct schedin){
+inline double deltavtotcalc(schedule_struct schedin){
 
     double dtot = 0.0;
 

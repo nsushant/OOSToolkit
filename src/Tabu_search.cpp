@@ -14,6 +14,7 @@
 #include <map>
 #include <cassert>
 #include "Local_search.hpp"
+#include <limits>
 
 /*
 Author : S. Nigudkar (2025)
@@ -203,6 +204,9 @@ schedule_struct Tabu_search_opt_schedule_lambert_only(double &init_deltaV, sched
       } // closes iteration over all move sizes
     } // closes iteration over all the moves
 
+    if (deltaVs_of_neighbourhood.empty()) {
+      continue; // No feasible neighbourhood solutions found
+    }
     auto itminDeltaV = std::min_element(deltaVs_of_neighbourhood.begin(), deltaVs_of_neighbourhood.end());
     double deltaVs_of_neighbourhood_minima = *itminDeltaV; // smallest element from dereferenced iterator
 
