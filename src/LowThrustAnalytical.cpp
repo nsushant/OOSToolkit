@@ -733,12 +733,7 @@ double calculate_edelbaum_deltaV_orbital_elems(
 
     deltaV_tot = deltav1 + deltav2;
 
-
   }
 
-
-
-
   return deltaV_tot;
-
 }

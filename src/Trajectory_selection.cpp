@@ -14,6 +14,9 @@
 #include "DP.hpp"
 #include "LowThrustAnalytical.hpp"
 
+// Definition of static member
+std::unordered_map<std::string, std::map<double, orbital_elements>> OrbitalElementAccessor::elem_cache;
+
 
 /*
 Author : S. Nigudkar (2025)
