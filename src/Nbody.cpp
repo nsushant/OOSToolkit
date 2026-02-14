@@ -88,15 +88,9 @@ orbital_elements orb_elems_from_rv(arma::vec r, arma::vec v){
       RAAN = 0.0;  // Convention
     }
 
-    else if (n(1) >= 0 ){
+    else {
 
-        RAAN =  std::acos(n(0)/n_norm);
-
-    }
-
-    else{
-
-        RAAN = 2 * M_PI - std::acos(n(0)/n_norm);
+        RAAN = std::atan2(n(1), n(0));  // Use atan2 to get full [0, 2π) range continuously
 
     }
 
@@ -218,7 +212,7 @@ arma::vec3 acceleration_due_to_central_body (const arma::vec3& r){
         return arma::vec3();
     }
 
-    return r * (-MU_EARTH / (pow(r_magnitude,3)));
+    return r * (-MU_EARTH / std::pow(r_magnitude,3));
 }
 
 // acceleration taking j2 perturbations into account
@@ -228,20 +222,23 @@ arma::vec3 acceleration_due_to_J2(const arma::vec3& r){
     double ry = r(1);
     double rz = r(2);
 
-    double r2 = rx*rx + ry*ry + rz*rz;
-    double r5 = pow(r2, 2.5);
+    double rmag =  arma::norm(r);
+
+    double r2 = std::pow(rmag,2);
+
+    double r5 = pow(rmag, 5);
 
     double z2 = rz*rz;
 
-    double factor = 1.5 * J2 * MU_EARTH * R_EARTH*R_EARTH / r5;
+    double factor = (- 3.0 * J2 * MU_EARTH * R_EARTH*R_EARTH) / (2*r5);
 
-    double common = 5.0 * z2 / r2 - 1.0;
+    double common = 1.0 - (5.0 * z2 / r2);
 
     arma::vec3 a;
 
     a(0) = rx * factor * common;
     a(1)= ry * factor * common;
-    a(2) = rz * factor * (5.0 * z2 / r2 - 3.0);
+    a(2) = rz * factor * (3.0 - ((5.0 * z2) / r2));
     return a;
 }
 
@@ -439,19 +436,31 @@ std::vector<satellite_object> circular_orbits(int total_satnum,
 
 
 
+void showProgressBar(int progress, int total, int barWidth)
+{
+    if (total <= 0) return;  // safety check
 
-void showProgressBar(int progress, int total, int barWidth ) {
     float ratio = static_cast<float>(progress) / total;
+    if (ratio > 1.0f) ratio = 1.0f;  // clamp
+
     int pos = static_cast<int>(barWidth * ratio);
 
     std::cout << "\r[";
-    for (int i = 0; i < barWidth; ++i) {
-        if (i < pos) std::cout << "█";   // filled part
-        else std::cout << "░";           // empty part
+    for (int i = 0; i < barWidth; ++i)
+    {
+        if (i < pos)
+            std::cout << "█";   // filled
+        else
+            std::cout << "░";   // empty
     }
-    std::cout << "] " << std::setw(3) << int(ratio * 100) << "%\r";
-    std::cout.flush();
-    std::cout<<"\n";
+
+    std::cout << "] "
+              << std::setw(3) << static_cast<int>(ratio * 100) << "%";
+
+    std::cout.flush();  // ensure immediate redraw
+
+    if (progress >= total)
+        std::cout << std::endl;  // move to next line when done
 }
 
 
@@ -495,7 +504,7 @@ void run_simulation(std::string save_to_file, double t_final, force_model fmodel
         // only write outputs to csv files every 10 timesteps
         // I am just thinning the datafile here so we can store it easily
 
-        //if(step % 10 == 0){
+        if(step % 10 == 0){
 
             for(size_t i=0;i<sats.size();i++){
 
@@ -511,13 +520,13 @@ void run_simulation(std::string save_to_file, double t_final, force_model fmodel
 
             }
 
-            //}
+        }
 
         runge_kutta_step(sats, tstep_size, fmodel);
 
         t += tstep_size;
         step++;
-        //showProgressBar(t, t_final);
+        showProgressBar(t, t_final,80);
 
 
     }
@@ -638,7 +647,7 @@ void run_simulation(    std::string save_to_file, std::string arrangement, doubl
 
         t += dt;
         step++;
-        //showProgressBar(t, t_final);
+        showProgressBar(std::round(t/t), std::round(t_final/t) ,1);
 
 
     }

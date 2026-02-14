@@ -12,6 +12,12 @@ set(CMAKE_PREFIX_PATH "/opt/homebrew/Cellar/armadillo/15.0.3")
 # Find Armadillo
 find_package(Armadillo REQUIRED)
 
+# Find Boost
+find_package(Boost REQUIRED COMPONENTS math)
+
+# Find CasADi using pkg-config
+find_package(PkgConfig REQUIRED)
+
 
 # Create a shared library for common code (excluding files with main functions)
 set(LIBRARY_SOURCES
@@ -32,24 +38,39 @@ add_library(NbodyLib STATIC ${LIBRARY_SOURCES})
 # Include Armadillo headers for the library
 target_include_directories(NbodyLib PRIVATE
                             ${ARMADILLO_INCLUDE_DIRS}
+                            ${Boost_INCLUDE_DIRS}
+                            ${Casadi_INCLUDE_DIRS}
                             ${PROJECT_SOURCE_DIR}/include
 )
 
-target_link_libraries(NbodyLib PRIVATE ${ARMADILLO_LIBRARIES})
+target_link_libraries(NbodyLib PRIVATE ${ARMADILLO_LIBRARIES} ${Boost_LIBRARIES} ${Casadi_LIBRARIES})
 
 # Create separate executables
-add_executable(SimExecutable "${PROJECT_SOURCE_DIR}/src/Sim.cpp")
+add_executable(ScalingTests "${PROJECT_SOURCE_DIR}/src/Sim.cpp")
 add_executable(RunSimExecutable "${PROJECT_SOURCE_DIR}/src/RunSim.cpp")
+#add_executable(SolverTrial "${PROJECT_SOURCE_DIR}/src/Solver_trial.cpp")
 
 # Link executables to the library
-target_include_directories(SimExecutable PRIVATE
+target_include_directories(ScalingTests PRIVATE
                             ${ARMADILLO_INCLUDE_DIRS}
+                            ${Boost_INCLUDE_DIRS}
+                            ${Casadi_INCLUDE_DIRS}
                             ${PROJECT_SOURCE_DIR}/include
 )
-target_link_libraries(SimExecutable PRIVATE NbodyLib ${ARMADILLO_LIBRARIES})
+target_link_libraries(ScalingTests PRIVATE NbodyLib ${ARMADILLO_LIBRARIES} ${Boost_LIBRARIES} ${Casadi_LIBRARIES})
 
 target_include_directories(RunSimExecutable PRIVATE
                             ${ARMADILLO_INCLUDE_DIRS}
+                            ${Boost_INCLUDE_DIRS}
+                            ${Casadi_INCLUDE_DIRS}
                             ${PROJECT_SOURCE_DIR}/include
 )
-target_link_libraries(RunSimExecutable PRIVATE NbodyLib ${ARMADILLO_LIBRARIES})
+target_link_libraries(RunSimExecutable PRIVATE NbodyLib ${ARMADILLO_LIBRARIES} ${Boost_LIBRARIES} ${Casadi_LIBRARIES})
+
+#target_include_directories(SolverTrial PRIVATE
+#                            ${ARMADILLO_INCLUDE_DIRS}
+#                            ${Boost_INCLUDE_DIRS}
+#                            ${Casadi_INCLUDE_DIRS}
+#                            ${PROJECT_SOURCE_DIR}/include
+#)
+#target_link_libraries(SolverTrial PRIVATE NbodyLib ${ARMADILLO_LIBRARIES} ${Boost_LIBRARIES} ${Casadi_LIBRARIES})

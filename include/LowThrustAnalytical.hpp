@@ -19,7 +19,8 @@ double calculate_edelbaum_deltaV_orbital_elems(
     std::string method
 );
 
-void low_thrust_di_carlo_independent();
-
-
-void low_thrust_di_carlo_twophase();
+double calculate_edelbaum_deltaV_orbital_elems(
+    orbital_elements orb_departure,  // departure satellite AT ARRIVAL TIME
+    orbital_elements orb_arrival,    // arrival satellite AT ARRIVAL TIME
+    double transfer_time           // t_arrival - t_departure
+);

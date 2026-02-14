@@ -32,14 +32,14 @@ const double MU_EARTH = 3.986004418e14; // m^3/s^2
 const double R_EARTH  = 6378137.0;      // m
 const double J2       = 1.08262668e-3;
 const double G_CONST  = 6.67430e-11;    // gravitational constant m^3/kg/s^2
-const double tstep_size = 6000.0;    //seconds
-const double a_depot = R_EARTH + 800.0;
-const double a_client = R_EARTH + 700.0;
+const double tstep_size = 60.0;    //seconds
+const double a_depot = R_EARTH + 800e3;
+const double a_client = R_EARTH + 700e3;
 const double inclination = 56.0 * M_PI/180.0;
 const double phase = 1.0;
 const double num_clients = 600.0;
 const double num_planes = 20.0;
-
+const double t_final = 31536000.0;
 // Mathematical constants
 constexpr double EPSILON = 1e-10;
 constexpr double PI = 3.14159265358979323846;
@@ -161,7 +161,7 @@ std::vector<satellite_object> build_walker_constellation(   int num_planes,
                                                             int phase,
                                                             double altitude_m,
                                                             double inclination_rad,
-                                                            double sat_mass=100.0   );
+                                                            double sat_mass=1.0   );
 
 
 

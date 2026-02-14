@@ -19,7 +19,7 @@
 #include "Simulated_Annealing.hpp"
 #include "VNS.hpp"
 #include "DP.hpp"
-#include "di_deltav_carlo.h"
+
 
 double run_es(schedule_struct &sched_in);
 
@@ -152,41 +152,11 @@ void run_comprehensive_scaling_tests()
     std::cout << "\n===== Testing " << visits << " visits =====" << std::endl;
 
     schedule_struct schedule_base = create_instance( visits, simfile);
+
+    //test instance gen
+    view_schedule(schedule_base);
+
     double initdeltavDP =deltavtotcalc(schedule_base);
-
-    /*
-    OrbitalElementAccessor orb_file(&simfile);
-
-    orbital_elements initial = orb_file.get_elements_at_time("service_1", schedule_base.blocks[1].departure_time);
-    orbital_elements final = orb_file.get_elements_at_time("sat_100", schedule_base.blocks[2].arrival_time);
-
-
-    double tof_seconds =  schedule_base.blocks[2].arrival_time - schedule_base.blocks[1].departure_time;
-    double thrust_accel = 1.5e-4; // m/s^2
-    */
-
-    orbital_elements initial;
-    initial.semi_major_axis = 7000e3;  // 7,000 km
-    initial.inclination = 51.0 * PI / 180.0;  // degrees to radians
-    initial.RAAN = 0.0;
-    initial.eccentricity = 0.0;
-    initial.augment_of_periapsis = 0.0;
-    initial.true_anomaly = 0.0;
-
-    orbital_elements final;
-    final.semi_major_axis = 7100e3;  // 7,100 km (small change)
-    final.inclination = 51.5 * PI / 180.0;  // small inclination change  
-    final.RAAN = 1.0 * PI / 180.0;  // small RAAN change
-    final.eccentricity = 0.0;
-    final.augment_of_periapsis = 0.0;
-    final.true_anomaly = 0.0;
-
-    // Use corrected low-thrust parameters with appropriate TOF
-    double tof_seconds = 700000.0; // ~8.1 days - sufficient for low-thrust transfer
-    double thrust_accel = 1e-4; // m/s^2 - low thrust as per paper
-
-    double delta_v = compute_minimum_delta_v_strategy2(initial, final, tof_seconds, thrust_accel);
-    std::cout<<"delta v: "<<delta_v<<"\n";
 
 
     //schedule_struct schedule_base = create_schedule_lambert_only(initdeltavDP, t_arrive, t_depart, sat_names_in_schedule, simfile, service_time);
