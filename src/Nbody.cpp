@@ -1,5 +1,5 @@
 #include <iostream>
-#include <iomanip>
+#include <iomanip>     // optional, for debug prints
 #include <cmath>
 #include <vector>
 #include <array>
@@ -8,6 +8,10 @@
 #include <armadillo>
 #include <chrono>
 #include <random>
+#include <omp.h>
+#include <cstdint>     // for uint64_t in headers
+#include <cstring>     // for std::strncpy in headers
+
 
 #include "Nbody.hpp"
 #include "Local_search.hpp"
@@ -279,6 +283,7 @@ arma::vec3 compute_acceleration(const satellite_object& sat, const std::vector<s
 }
 
 
+
 // 4th order runge kutta integration to propogate satellite objects forwards in time.
 void runge_kutta_step(std::vector<satellite_object>& sats, double dt, const force_model& force_options){
 
@@ -346,6 +351,72 @@ void runge_kutta_step(std::vector<satellite_object>& sats, double dt, const forc
 
 
 }
+
+
+
+
+
+arma::vec3 compute_acceleration_single_sat(const satellite_object& sat, const force_model& force_options){
+
+    arma::vec3 acceleration_total = acceleration_due_to_central_body(sat.r);
+
+    // adding a J2 perturbation
+    // (Non-keplerian)
+
+    if(force_options.includeJ2){
+        acceleration_total += acceleration_due_to_J2(sat.r);
+    }
+
+    return acceleration_total;
+}
+
+
+
+void runge_kutta_single_sat(satellite_object& sat,
+                            double dt,
+                            const force_model& force_options)
+{
+    // RK4 increments
+    arma::vec k1r, k1v;
+    arma::vec k2r, k2v;
+    arma::vec k3r, k3v;
+    arma::vec k4r, k4v;
+
+    // ---- k1 ----
+    k1r = sat.v;
+    k1v = compute_acceleration_single_sat(sat, force_options);
+
+    // temp state for k2
+    satellite_object temp = sat;
+    temp.r = sat.r + 0.5 * dt * k1r;
+    temp.v = sat.v + 0.5 * dt * k1v;
+
+    // ---- k2 ----
+    k2r = temp.v;
+    k2v = compute_acceleration_single_sat(temp, force_options);
+
+    // temp state for k3
+    temp.r = sat.r + 0.5 * dt * k2r;
+    temp.v = sat.v + 0.5 * dt * k2v;
+
+    // ---- k3 ----
+    k3r = temp.v;
+    k3v = compute_acceleration_single_sat(temp, force_options);
+
+    // temp state for k4
+    temp.r = sat.r + dt * k3r;
+    temp.v = sat.v + dt * k3v;
+
+    // ---- k4 ----
+    k4r = temp.v;
+    k4v = compute_acceleration_single_sat(temp, force_options);
+
+    // ---- Final update ----
+    sat.r += (k1r + 2.0*k2r + 2.0*k3r + k4r) * (dt / 6.0);
+    sat.v += (k1v + 2.0*k2v + 2.0*k3v + k4v) * (dt / 6.0);
+}
+
+
 
 
 // distributing satellites in a walker constellation
@@ -438,10 +509,14 @@ std::vector<satellite_object> circular_orbits(int total_satnum,
 
 void showProgressBar(int progress, int total, int barWidth)
 {
-    if (total <= 0) return;  // safety check
+    if (total <= 0){
+        return;
+    }  // safety check
 
     float ratio = static_cast<float>(progress) / total;
-    if (ratio > 1.0f) ratio = 1.0f;  // clamp
+    if (ratio > 1.0f){
+        ratio = 1.0f;
+    }  // clamp
 
     int pos = static_cast<int>(barWidth * ratio);
 
@@ -459,10 +534,109 @@ void showProgressBar(int progress, int total, int barWidth)
 
     std::cout.flush();  // ensure immediate redraw
 
-    if (progress >= total)
+    if (progress >= total){
         std::cout << std::endl;  // move to next line when done
+    }
 }
 
+
+
+
+
+
+void run_simulation_paralell( std::string save_to_dir, double t_final, force_model fmodel ){
+
+
+    std::vector<satellite_object> sats;
+    sats = build_walker_constellation(num_planes, num_clients, phase,
+                                      a_client,inclination,1.0);
+
+
+    //init service satellite in circular orbit
+
+    orbital_elements svc;
+    svc.semi_major_axis = a_depot;
+    svc.eccentricity = 0.001;
+    svc.inclination = inclination;
+    svc.RAAN = 0.0;
+    svc.augment_of_periapsis = 10.0 * M_PI/180.0;
+    svc.true_anomaly = 0.0;
+
+    sats.push_back(satellite_object::from_satellite_normal_to_ECI_coords("service_1", svc, 1.0));
+
+
+    #pragma omp parallel for
+    for(int i = 0; i < sats.size(); i++){
+
+        satellite_object sat = sats[i];  // local copy
+
+        std::string filename = "../data/"+save_to_dir +"/"+ sat.satname + ".bin";
+        std::ofstream file(filename, std::ios::binary);
+
+        size_t max_buffer_bytes = 4 * 1024 * 1024;
+        size_t buffer_size = max_buffer_bytes / sizeof(StateRecord);
+
+        std::vector<StateRecord> buffer;
+        buffer.reserve(buffer_size);
+
+        double t = 0.0;
+        int step = 0;
+
+        while(t < t_final){
+
+            if(step % 10 == 0){
+
+                StateRecord rec;
+                rec.t = t;
+
+                // positions
+                rec.r[0] = sat.r(0);
+                rec.r[1] = sat.r(1);
+                rec.r[2] = sat.r(2);
+
+                // velocities
+                rec.v[0] = sat.v(0);
+                rec.v[1] = sat.v(1);
+                rec.v[2] = sat.v(2);
+
+                // orbital elements (optional)
+                orbital_elements elems = orb_elems_from_rv(sat.r, sat.v);
+                rec.semi_major_axis = elems.semi_major_axis;
+                rec.eccentricity    = elems.eccentricity;
+                rec.inclination     = elems.inclination;
+                rec.RAAN            = elems.RAAN;
+                rec.arg_periapsis   = elems.augment_of_periapsis;
+                rec.true_anomaly    = elems.true_anomaly;
+
+                buffer.push_back(rec);
+
+                if (buffer.size() == 1000) {
+
+                    file.write(reinterpret_cast<const char*>(buffer.data()),
+                    buffer.size() * sizeof(StateRecord));
+                    buffer.clear();
+
+                }
+            }
+
+            runge_kutta_single_sat(sat, tstep_size, fmodel);
+
+            t += tstep_size;
+            step++;
+        }
+
+        if (buffer.size() * sizeof(StateRecord) >= max_buffer_bytes) {
+            file.write(reinterpret_cast<const char*>(buffer.data()),
+                       buffer.size() * sizeof(StateRecord));
+            buffer.clear();
+        }
+            file.close();
+
+
+    }
+
+
+}
 
 
 

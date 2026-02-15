@@ -19,8 +19,8 @@ int main(int argc, char *argv[])
   std::cout << "- t_final : "<< t_final << " seconds"<<" \n";
   std::cout << "------------------------------------- " <<"\n";
 
-  run_simulation("WalkerDelta.csv", t_final, fmodel);
-
+  //run_simulation("WalkerDelta.csv", t_final, fmodel);
+  run_simulation_paralell( "simfiles", t_final, fmodel );
   std::cout << "finished running sim" << "\n";
 
   return 0;

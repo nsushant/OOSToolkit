@@ -1,6 +1,9 @@
 cmake_minimum_required(VERSION 3.20)
 project(Nbody)
 
+set(CMAKE_C_COMPILER /opt/homebrew/bin/gcc-15)
+set(CMAKE_CXX_COMPILER /opt/homebrew/bin/g++-15)
+
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
@@ -17,6 +20,8 @@ find_package(Boost REQUIRED COMPONENTS math)
 
 # Find CasADi using pkg-config
 find_package(PkgConfig REQUIRED)
+# Find OpenMP
+find_package(OpenMP REQUIRED)
 
 
 # Create a shared library for common code (excluding files with main functions)
@@ -64,6 +69,7 @@ target_include_directories(RunSimExecutable PRIVATE
                             ${Boost_INCLUDE_DIRS}
                             ${Casadi_INCLUDE_DIRS}
                             ${PROJECT_SOURCE_DIR}/include
+                            OpenMP::OpenMP_CXX
 )
 target_link_libraries(RunSimExecutable PRIVATE NbodyLib ${ARMADILLO_LIBRARIES} ${Boost_LIBRARIES} ${Casadi_LIBRARIES})
 

@@ -46,7 +46,23 @@ constexpr double PI = 3.14159265358979323846;
 
 
 
+
+
 // simulation structs //
+
+struct StateRecord {
+    double t;
+
+    double r[3];
+    double v[3];
+
+    double semi_major_axis;
+    double eccentricity;
+    double inclination;
+    double RAAN;
+    double arg_periapsis;
+    double true_anomaly;
+};
 
 struct orbital_elements
 {
@@ -155,6 +171,13 @@ arma::vec3 compute_acceleration(const satellite_object& sat,
 // 4th order runge kutta integration to propogate satellite objects forwards in time.
 void runge_kutta_step(std::vector<satellite_object>& sats, double dt, const force_model& force_options);
 
+arma::vec3 compute_acceleration_single_sat(const satellite_object& sat, const force_model& force_options);
+
+void runge_kutta_single_sat(satellite_object& sat,
+                            double dt,
+                            const force_model& force_options);
+
+
 // distributing satellites in a walker constellation
 std::vector<satellite_object> build_walker_constellation(   int num_planes,
                                                             int total_satnum,
@@ -168,6 +191,9 @@ std::vector<satellite_object> build_walker_constellation(   int num_planes,
 
 
 void showProgressBar(int progress, int total, int barWidth = 50);
+
+
+void run_simulation_paralell(std::string save_to_dir, double t_final,force_model fmodel);
 
 void run_simulation(std::string save_to_file, double t_final, force_model fmodel);
 
